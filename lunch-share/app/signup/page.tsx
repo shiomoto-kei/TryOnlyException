@@ -3,9 +3,9 @@ import type { CSSProperties } from "react";
 export default function SignupPage() {
   return (
     <main style={styles.page}>
-      <section style={styles.content} aria-label="新規登録">
-        <img src="/logo.png" alt="みーてぃんぐ" style={styles.logo} />
+      <img src="/logo.png" alt="みーてぃんぐ" style={styles.logo} />
 
+      <section style={styles.content} aria-label="新規登録">
         <h1 style={styles.title}>新規登録</h1>
 
         <form style={styles.form}>
@@ -33,29 +33,32 @@ const styles: Record<string, CSSProperties> = {
     minHeight: "100vh",
     background: "#FCE8A8",
     display: "flex",
-    justifyContent: "center",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "flex-start",
     fontFamily: '"Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
   },
   content: {
     width: "100%",
     maxWidth: 310,
-    minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    padding: "142px 24px 48px",
+    padding: "0 24px 48px",
     boxSizing: "border-box",
   },
   logo: {
-    width: 205,
+    width: 360,
+    maxWidth: "calc(100vw - 48px)",
     height: "auto",
     objectFit: "contain",
-    marginBottom: 42,
+    marginTop: 142,
+    marginBottom: 10,
   },
   title: {
-    margin: "0 0 48px",
+    margin: "0 0 46px",
     color: "#1F1F1F",
-    fontSize: 18,
+    fontSize: 30,
     fontWeight: 700,
     letterSpacing: 0,
   },

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 
@@ -9,8 +10,10 @@ const memberPositions = [
 ];
 
 export default function HomePage() {
+  const router = useRouter();
   const handleAdd = () => {
     console.log('追加ボタン押下');
+    router.push('/shops');
   };
 
   return (

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 
@@ -10,10 +10,18 @@ const memberPositions = [
 ];
 
 export default function HomePage() {
-  const router = useRouter();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [shop, setShop] = useState('');
+  const [menu, setMenu] = useState('');
+  const [comment, setComment] = useState('');
+
   const handleAdd = () => {
-    console.log('追加ボタン押下');
-    router.push('/shops');
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = () => {
+    console.log({ shop, menu, comment });
+    setIsModalOpen(false);
   };
 
   return (
@@ -44,6 +52,56 @@ export default function HomePage() {
           })}
           <button onClick={handleAdd} style={styles.addButton}>＋</button>
         </div>
+
+        {isModalOpen && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setIsModalOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              role="dialog"
+              aria-label="行きたいお店登録"
+              style={styles.modalCard}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <label style={styles.field}>
+                <span style={styles.label}>行きたいお店：</span>
+                <input
+                  type="text"
+                  value={shop}
+                  onChange={(event) => setShop(event.target.value)}
+                  style={styles.underlineInput}
+                />
+              </label>
+
+              <label style={styles.field}>
+                <span style={styles.label}>美味しいメニュー：</span>
+                <input
+                  type="text"
+                  value={menu}
+                  onChange={(event) => setMenu(event.target.value)}
+                  style={styles.underlineInput}
+                />
+              </label>
+
+              <label style={styles.commentField}>
+                <span style={styles.commentLabel}>ひとこと</span>
+                <input
+                  type="text"
+                  value={comment}
+                  onChange={(event) => setComment(event.target.value)}
+                  style={styles.commentInput}
+                />
+              </label>
+
+              <button onClick={handleSubmit} style={styles.submitButton}>
+                投稿
+              </button>
+            </section>
+          </div>
+        )}
       </main>
 
       <BottomNav />
@@ -100,5 +158,90 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: 'none',
     cursor: 'pointer',
     boxShadow: '0 4px 8px rgba(255,87,87,0.4)',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    inset: 0,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    background: 'rgba(255,255,255,0.55)',
+    zIndex: 5,
+  },
+  modalCard: {
+    width: 'min(72vw, 300px)',
+    minHeight: 168,
+    padding: '24px 18px 16px',
+    border: '1px solid #888',
+    borderRadius: 14,
+    background: '#fff',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    boxSizing: 'border-box',
+  },
+  field: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3,
+  },
+  label: {
+    color: '#555',
+    fontSize: 10,
+    lineHeight: 1.3,
+  },
+  underlineInput: {
+    width: '100%',
+    height: 20,
+    padding: '2px 0',
+    border: 'none',
+    borderBottom: '1px solid #bcbcbc',
+    borderRadius: 0,
+    background: 'transparent',
+    color: '#333',
+    fontSize: 12,
+    outlineColor: '#F5B042',
+    boxSizing: 'border-box',
+  },
+  commentField: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  commentLabel: {
+    color: '#555',
+    fontSize: 10,
+    lineHeight: 1.3,
+    whiteSpace: 'nowrap',
+  },
+  commentInput: {
+    flex: 1,
+    minWidth: 0,
+    height: 22,
+    padding: '2px 6px',
+    border: '1px solid #aaa',
+    borderRadius: 2,
+    background: '#fff',
+    color: '#333',
+    fontSize: 12,
+    outlineColor: '#F5B042',
+    boxSizing: 'border-box',
+  },
+  submitButton: {
+    alignSelf: 'center',
+    minWidth: 58,
+    height: 24,
+    marginTop: 2,
+    padding: '0 14px',
+    border: 'none',
+    borderRadius: 4,
+    background: '#F5B042',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 2px 0 #C98421',
   },
 };

@@ -12,7 +12,7 @@ export default function Header() {
         style={styles.logoButton}
         aria-label="ホームに戻る"
       >
-        <img src="/logo.png" alt="みーてぃんぐ" style={styles.logoImg} />
+        <img src="/meating_logo.png" alt="みーてぃんぐ" style={styles.logoImg} />
       </button>
 
       <button
@@ -39,7 +39,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
   },
   logoImg: {
-    height: 36,
+    height: 48,
     width: 'auto',
     objectFit: 'contain',
   },

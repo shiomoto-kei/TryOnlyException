@@ -1,26 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
-
-const memberPositions = [
-  { angle: -90 }, { angle: -45 }, { angle: 0 }, { angle: 45 },
-  { angle: 90 }, { angle: 135 }, { angle: 180 }, { angle: 225 },
-];
+import { createLunchPost, getMainPageData } from './action';
+import type { MainPageData } from './action';
 
 export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [shop, setShop] = useState('');
   const [menu, setMenu] = useState('');
   const [comment, setComment] = useState('');
+  const [pageData, setPageData] = useState<MainPageData | null>(null);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    async function loadData() {
+      const data = await getMainPageData();
+      setPageData(data);
+    }
+
+    loadData();
+  }, []);
 
   const handleAdd = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = () => {
-    console.log({ shop, menu, comment });
+  const handleSubmit = async () => {
+    const result = await createLunchPost({
+      shop,
+      menu,
+      comment,
+    });
+
+    setMessage(result.message);
+
+    if (!result.ok) return;
+
+    setShop('');
+    setMenu('');
+    setComment('');
     setIsModalOpen(false);
   };
 
@@ -29,27 +50,38 @@ export default function HomePage() {
       <Header />
 
       <div style={styles.groupRow}>
-        <div style={styles.groupIcon} />
-        <span style={styles.groupName}>ささき隊</span>
+        <div
+          style={{
+            ...styles.groupIcon,
+            background: pageData?.group.iconColor ?? '#e0e0e0',
+          }}
+        />
+        <span style={styles.groupName}>
+          {pageData?.group.name ?? '読み込み中...'}
+        </span>
       </div>
 
       <main style={styles.main}>
         <div style={styles.circleArea}>
-          {memberPositions.map((m, i) => {
+          {pageData?.members.map((member) => {
             const radius = 110;
-            const rad = (m.angle * Math.PI) / 180;
+            const rad = (member.angle * Math.PI) / 180;
             const x = Math.cos(rad) * radius;
             const y = Math.sin(rad) * radius;
+
             return (
               <div
-                key={i}
+                key={member.id}
+                title={member.name}
                 style={{
                   ...styles.memberAvatar,
+                  background: member.avatarColor,
                   transform: `translate(${x}px, ${y}px)`,
                 }}
               />
             );
           })}
+
           <button onClick={handleAdd} style={styles.addButton}>＋</button>
         </div>
 
@@ -62,12 +94,12 @@ export default function HomePage() {
             <section
               aria-modal="true"
               role="dialog"
-              aria-label="行きたいお店登録"
+              aria-label="行きたいお店の投稿"
               style={styles.modalCard}
               onClick={(event) => event.stopPropagation()}
             >
               <label style={styles.field}>
-                <span style={styles.label}>行きたいお店：</span>
+                <span style={styles.label}>行きたいお店</span>
                 <input
                   type="text"
                   value={shop}
@@ -77,7 +109,7 @@ export default function HomePage() {
               </label>
 
               <label style={styles.field}>
-                <span style={styles.label}>美味しいメニュー：</span>
+                <span style={styles.label}>食べたいメニュー</span>
                 <input
                   type="text"
                   value={menu}
@@ -96,6 +128,8 @@ export default function HomePage() {
                 />
               </label>
 
+              {message && <p style={styles.message}>{message}</p>}
+
               <button onClick={handleSubmit} style={styles.submitButton}>
                 投稿
               </button>
@@ -109,7 +143,7 @@ export default function HomePage() {
   );
 }
 
-const styles: { [key: string]: React.CSSProperties } = {
+const styles: { [key: string]: CSSProperties } = {
   page: {
     minHeight: '100vh',
     background: '#fff',

@@ -1,53 +1,43 @@
 ﻿'use server';
-//型定義
 
-//メンバー1人分の情報
 export type Member = {
   id: string;
   name: string;
   avatarColor: string;
 };
 
-//グループ情報
 export type Group = {
   id: string;
   name: string;
   iconColor: string;
 };
 
-//メンバー配置用の情報
 export type MemberPosition = Member & {
   angle: number;
 };
 
-//トップページで必要なデータ
 export type MainPageData = {
   group: Group;
   members: MemberPosition[];
 };
 
-//ダミーデータ
-const group: Group = {
-  id: 'default-group',
-  name: 'ささき班',
-  iconColor: '#e0e0e0',
+export type LunchPostInput = {
+  shop: string;
+  menu: string;
+  comment: string;
 };
 
-//メンバーのダミーデータ
-const members: Member[] = [
-  { id: 'member-1', name: 'member 1', avatarColor: '#d4d4d4' },
-  { id: 'member-2', name: 'member 2', avatarColor: '#d4d4d4' },
-  { id: 'member-3', name: 'member 3', avatarColor: '#d4d4d4' },
-  { id: 'member-4', name: 'member 4', avatarColor: '#d4d4d4' },
-  { id: 'member-5', name: 'member 5', avatarColor: '#d4d4d4' },
-  { id: 'member-6', name: 'member 6', avatarColor: '#d4d4d4' },
-  { id: 'member-7', name: 'member 7', avatarColor: '#d4d4d4' },
-  { id: 'member-8', name: 'member 8', avatarColor: '#d4d4d4' },
-];
+export type LunchPostResult = {
+  ok: boolean;
+  message: string;
+};
 
-const startAngle = -90;
-//メンバーの数に応じて、円形に配置するための角度を計算して返す関数
-function buildMemberPositions(memberList: Member[]): MemberPosition[] {
+function buildMemberPositions(
+  memberList: Member[],
+  startAngle = -90,
+): MemberPosition[] {
+  if (memberList.length === 0) return [];
+
   const angleStep = 360 / memberList.length;
 
   return memberList.map((member, index) => ({
@@ -56,10 +46,55 @@ function buildMemberPositions(memberList: Member[]): MemberPosition[] {
   }));
 }
 
-//トップページで必要なデータを取得する関数
 export async function getMainPageData(): Promise<MainPageData> {
+  // TODO: Supabase 準備後に DB 取得へ差し替え
+  // const { data: group } = await supabase.from('groups').select('*').single();
+  // const { data: members } = await supabase.from('members').select('*').eq('group_id', group.id);
+
+  const group: Group = {
+    id: 'default-group',
+    name: 'ささき班',
+    iconColor: '#e0e0e0',
+  };
+
+  const members: Member[] = [
+    { id: 'member-1', name: '佐藤', avatarColor: '#F87171' },
+    { id: 'member-2', name: '鈴木', avatarColor: '#FB923C' },
+    // { id: 'member-3', name: '高橋', avatarColor: '#FACC15' },
+    // { id: 'member-4', name: '田中', avatarColor: '#4ADE80' },
+    // { id: 'member-5', name: '伊藤', avatarColor: '#2DD4BF' },
+    // { id: 'member-6', name: '渡辺', avatarColor: '#60A5FA' },
+    { id: 'member-7', name: '山本', avatarColor: '#A78BFA' },
+    { id: 'member-8', name: '中村', avatarColor: '#F472B6' },
+  ];
+
   return {
     group,
     members: buildMemberPositions(members),
+  };
+}
+
+export async function createLunchPost(
+  input: LunchPostInput,
+): Promise<LunchPostResult> {
+  const shop = input.shop.trim();
+  const menu = input.menu.trim();
+  const comment = input.comment.trim();
+
+  if (!shop || !menu) {
+    return {
+      ok: false,
+      message: 'お店とメニューを入力してください。',
+    };
+  }
+
+  // TODO: Supabase 準備後に insert へ差し替え
+  // await supabase.from('lunch_posts').insert({ shop, menu, comment });
+
+  console.log('mock lunch post:', { shop, menu, comment });
+
+  return {
+    ok: true,
+    message: '投稿しました。',
   };
 }

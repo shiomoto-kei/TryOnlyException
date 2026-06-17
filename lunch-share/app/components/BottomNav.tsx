@@ -39,15 +39,15 @@ export default function BottomNav() {
         <ShopListIcon color={isActive('/list') ? activeColor : inactiveColor} />
       </button>
 
-      <button onClick={() => router.push('/')} style={styles.navCenter}>
+      <button onClick={() => router.push('/main')} style={styles.navCenter}>
         <img src={MEATING_ICON} alt="home" style={styles.navCenterImage} />
       </button>
 
       <button
-        onClick={() => router.push('/friends')}
+        onClick={() => router.push('/profile')}
         style={styles.navItem}
       >
-        <GroupIcon color={isActive('/friends') ? activeColor : inactiveColor} />
+        <GroupIcon color={isActive('/profile') ? activeColor : inactiveColor} />
       </button>
     </nav>
   );

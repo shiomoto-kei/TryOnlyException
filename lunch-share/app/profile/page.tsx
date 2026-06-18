@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
@@ -31,12 +32,14 @@ const FriendListIcon = () => (
 
 export default function ProfilePage() {
   const router = useRouter();
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
 
-  // TODO: Supabaseからユーザー情報を取得して差し替え
   const name = 'ささき しょうま';
 
-  const handleLogout = () => {
+  const handleLogoutConfirm = () => {
     console.log('ログアウト');
+    setIsLogoutModalOpen(false);
     // TODO: Supabase signOut → router.push('/login')
   };
 
@@ -57,7 +60,7 @@ export default function ProfilePage() {
 
         {/* メニューグリッド */}
         <div style={styles.grid}>
-          <button onClick={handleLogout} style={styles.menuButton}>
+          <button onClick={() => setIsLogoutModalOpen(true)} style={styles.menuButton}>
             <LogoutIcon />
             <span style={styles.menuLabel}>ログアウト</span>
           </button>
@@ -71,7 +74,7 @@ export default function ProfilePage() {
           </button>
 
           <button
-            onClick={() => router.push('/friends/add')}
+            onClick={() => setIsQRModalOpen(true)}
             style={styles.menuButton}
           >
             <AddFriendIcon />
@@ -86,6 +89,72 @@ export default function ProfilePage() {
             <span style={styles.menuLabel}>フレンド一覧</span>
           </button>
         </div>
+
+        {/* ログアウト確認モーダル */}
+        {isLogoutModalOpen && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setIsLogoutModalOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              role="dialog"
+              style={styles.modalCard}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={styles.modalTitle}>ログアウト</p>
+              <p style={styles.modalBody}>ログアウトしてよろしいですか？</p>
+              <div style={styles.modalButtons}>
+                <button
+                  onClick={() => setIsLogoutModalOpen(false)}
+                  style={styles.cancelButton}
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleLogoutConfirm}
+                  style={styles.okButton}
+                >
+                  OK
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* QRコードモーダル */}
+        {isQRModalOpen && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setIsQRModalOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              role="dialog"
+              style={styles.modalCard}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={styles.modalTitle}>マイQRコード</p>
+              <div style={styles.qrPlaceholder} />
+              <div style={styles.modalButtons}>
+                <button
+                  onClick={() => setIsQRModalOpen(false)}
+                  style={styles.cancelButton}
+                >
+                  閉じる
+                </button>
+                <button
+                  onClick={() => router.push('/friends/add')}
+                  style={styles.okButton}
+                >
+                  読み取る
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
       </main>
 
       <BottomNav />
@@ -109,6 +178,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: 20,
+    position: 'relative',
   },
   avatarWrap: {
     display: 'flex',
@@ -161,5 +231,74 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 13,
     color: '#5a4a2a',
     fontWeight: 600,
+  },
+  // モーダル共通
+  modalBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    background: 'rgba(255,255,255,0.55)',
+    zIndex: 10,
+  },
+  modalCard: {
+    width: 'min(72vw, 300px)',
+    padding: '24px 18px 16px',
+    border: '1px solid #888',
+    borderRadius: 14,
+    background: '#fff',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 12,
+    boxSizing: 'border-box',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    color: '#333',
+    margin: 0,
+  },
+  modalBody: {
+    fontSize: 14,
+    color: '#555',
+    margin: 0,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    display: 'flex',
+    gap: 12,
+    marginTop: 4,
+  },
+  cancelButton: {
+    minWidth: 90,
+    height: 36,
+    border: '1px solid #ccc',
+    borderRadius: 20,
+    background: '#e0e0e0',
+    color: '#333',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  okButton: {
+    minWidth: 90,
+    height: 36,
+    border: 'none',
+    borderRadius: 20,
+    background: '#FF6B6B',
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  // QRコード
+  qrPlaceholder: {
+    width: 160,
+    height: 160,
+    borderRadius: 8,
+    background: '#d4d4d4',
   },
 };

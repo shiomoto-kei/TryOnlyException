@@ -224,6 +224,7 @@ const styles: { [key: string]: CSSProperties } = {
     color: '#555',
     fontSize: 10,
     lineHeight: 1.3,
+    fontWeight: 700,
   },
   underlineInput: {
     width: '100%',
@@ -235,6 +236,7 @@ const styles: { [key: string]: CSSProperties } = {
     background: 'transparent',
     color: '#333',
     fontSize: 12,
+    fontWeight: 700,
     outlineColor: '#F5B042',
     boxSizing: 'border-box',
   },
@@ -249,6 +251,7 @@ const styles: { [key: string]: CSSProperties } = {
     fontSize: 10,
     lineHeight: 1.3,
     whiteSpace: 'nowrap',
+    fontWeight: 700,
   },
   commentInput: {
     flex: 1,
@@ -260,6 +263,7 @@ const styles: { [key: string]: CSSProperties } = {
     background: '#fff',
     color: '#333',
     fontSize: 12,
+    fontWeight: 700,
     outlineColor: '#F5B042',
     boxSizing: 'border-box',
   },

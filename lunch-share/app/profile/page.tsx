@@ -82,7 +82,7 @@ export default function ProfilePage() {
           </button>
 
           <button
-            onClick={() => router.push('/friends')}
+            onClick={() => router.push('/friendlist')}
             style={styles.menuButton}
           >
             <FriendListIcon />
@@ -146,7 +146,7 @@ export default function ProfilePage() {
                   閉じる
                 </button>
                 <button
-                  onClick={() => router.push('/friends/add')}
+                  onClick={() => router.push('/friendlist')}
                   style={styles.okButton}
                 >
                   読み取る

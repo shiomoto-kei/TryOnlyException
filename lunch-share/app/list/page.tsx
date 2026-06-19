@@ -1,34 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, type CSSProperties } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
-
-const initialShops = [
-  {
-    name: 'MAREN',
-    postalCode: '〒530-0015',
-    address: '大阪府大阪市北区中崎西1-4-22 梅田東ビル1F',
-    category: 'まぜそば',
-  },
-  {
-    name: 'MAREN',
-    postalCode: '〒530-0015',
-    address: '大阪府大阪市北区中崎西1-4-22 梅田東ビル1F',
-    category: 'まぜそば',
-  },
-  {
-    name: 'MAREN',
-    postalCode: '〒530-0015',
-    address: '大阪府大阪市北区中崎西1-4-22 梅田東ビル1F',
-    category: 'まぜそば',
-  },
-];
+import { createShop, getShops, type Shop } from './action';
 
 export default function ShopListPage() {
-  const [shops, setShops] = useState(initialShops);
+  const [shops, setShops] = useState<Shop[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [shopName, setShopName] = useState('');
   const [category, setCategory] = useState('');
@@ -36,21 +15,41 @@ export default function ShopListPage() {
   const [comment, setComment] = useState('');
   const [message, setMessage] = useState('');
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    const loadShops = async () => {
+      const data = await getShops();
+      setShops(data);
+    };
+
+    loadShops();
+  }, []);
+
+  const handleSubmit = async () => {
     if (!shopName.trim()) {
       setMessage('お店の名前を入力してください');
       return;
     }
-    setShops((prev) => [
-      ...prev,
-      { name: shopName, postalCode: '', address, category },
-    ]);
-    setShopName('');
-    setCategory('');
-    setAddress('');
-    setComment('');
-    setMessage('');
-    setIsModalOpen(false);
+
+    try {
+      const createdShop = await createShop({
+        name: shopName,
+        category,
+        address,
+        comment,
+      });
+
+      setShops((prev) => [...prev, createdShop]);
+      setShopName('');
+      setCategory('');
+      setAddress('');
+      setComment('');
+      setMessage('');
+      setIsModalOpen(false);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : '登録に失敗しました'
+      );
+    }
   };
 
   return (
@@ -64,13 +63,19 @@ export default function ShopListPage() {
             onClick={() => setIsModalOpen(true)}
             style={styles.addButton}
           >
-            お店の追加
+            お店を追加
           </button>
         </div>
 
         <section style={styles.cardList} aria-label="お店一覧">
-          {shops.map((shop, index) => (
-            <ShopCard key={`${shop.name}-${index}`} {...shop} />
+          {shops.map((shop) => (
+            <ShopCard
+              key={shop.id}
+              name={shop.name}
+              postalCode={shop.postalCode}
+              address={shop.address}
+              category={shop.category}
+            />
           ))}
         </section>
 
@@ -83,11 +88,10 @@ export default function ShopListPage() {
             <section
               aria-modal="true"
               role="dialog"
-              aria-label="お店の追加"
+              aria-label="お店を追加"
               style={styles.modalCard}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* お気に入りのお店 */}
               <div style={styles.row}>
                 <span style={styles.label}>お気に入りのお店：</span>
                 <input
@@ -98,7 +102,6 @@ export default function ShopListPage() {
                 />
               </div>
 
-              {/* カテゴリ */}
               <div style={styles.row}>
                 <span style={styles.label}>カテゴリ：</span>
                 <input
@@ -109,7 +112,6 @@ export default function ShopListPage() {
                 />
               </div>
 
-              {/* 住所 */}
               <div style={styles.row}>
                 <span style={styles.label}>住所：</span>
                 <input
@@ -120,7 +122,6 @@ export default function ShopListPage() {
                 />
               </div>
 
-              {/* 画像 */}
               <div style={styles.row}>
                 <span style={styles.label}>画像：</span>
                 <button type="button" style={styles.photoButton}>
@@ -128,10 +129,15 @@ export default function ShopListPage() {
                 </button>
               </div>
 
-              {/* コメント */}
               <div style={styles.commentRow}>
-                <span style={{ ...styles.label, alignSelf: 'flex-start', paddingTop: 4 }}>
-                  コメント
+                <span
+                  style={{
+                    ...styles.label,
+                    alignSelf: 'flex-start',
+                    paddingTop: 4,
+                  }}
+                >
+                  コメント：
                 </span>
                 <textarea
                   value={comment}
@@ -142,7 +148,7 @@ export default function ShopListPage() {
 
               {message && <p style={styles.message}>{message}</p>}
 
-              <button onClick={handleSubmit} style={styles.submitButton}>
+              <button type="button" onClick={handleSubmit} style={styles.submitButton}>
                 追加
               </button>
             </section>

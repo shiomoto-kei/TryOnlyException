@@ -1,4 +1,4 @@
-'use server';
+﻿'use server';
 
 import { supabaseServer } from '../lib/supabaseServer';
 
@@ -90,11 +90,11 @@ export async function createLunchPost(
     };
   }
 
-  const { error } = await supabaseServer.from('lunch_posts').insert({
-    shop,
-    menu,
-    comment,
-  });
+ const { error } = await supabaseServer.from('shops').insert({
+  name: shop,       // 「行きたいお店」→ name列（必須）
+  category: menu,   // 「食べたいメニュー」→ category列で代用
+  comment,          // そのままcomment列へ
+});
 
   if (error) {
     return {

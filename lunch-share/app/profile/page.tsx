@@ -1,11 +1,16 @@
 'use client';
 
 import { supabase } from '../lib/supabaseClient';
-import { useEffect,useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getOrCreateCurrentUser } from '../lib/currentUser';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
+import {
+  loadStoredProfile,
+  loadUserProfile,
+  PROFILE_UPDATED_EVENT,
+} from '../lib/profileStorage';
 
 const LogoutIcon = () => (
   <svg width="48" height="48" viewBox="0 0 81 81" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -62,8 +67,26 @@ useEffect(() => {
   const router = useRouter();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [profile, setProfile] = useState(loadStoredProfile);
 
-  //const name = 'ささき しょうま';
+  useEffect(() => {
+    const syncProfile = () => {
+      setProfile(loadStoredProfile());
+    };
+    const syncUserProfile = async () => {
+      setProfile(await loadUserProfile());
+    };
+
+    syncProfile();
+    syncUserProfile();
+    window.addEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+    window.addEventListener('storage', syncProfile);
+
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+      window.removeEventListener('storage', syncProfile);
+    };
+  }, []);
 
  const handleLogoutConfirm = async () => {
   await supabase.auth.signOut();
@@ -78,14 +101,21 @@ useEffect(() => {
       <main style={styles.main}>
         {/* アバター（表示のみ） */}
         <div style={styles.avatarWrap}>
-          <div style={styles.avatar} />
+          <div
+            style={{
+              ...styles.avatar,
+              backgroundImage: profile.avatarSrc
+                ? `url(${profile.avatarSrc})`
+                : undefined,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
         </div>
 
         {/* 名前（表示のみ） */}
         <div style={styles.nameRow}>
-          <span style={styles.nameText}>{name}
-             {currentUser?.name ?? '読み込み中...'}
-          </span>
+          <span style={styles.nameText}>{profile.name}</span>
         </div>
 
         {/* メニューグリッド */}
@@ -336,11 +366,4 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 8,
     background: '#d4d4d4',
   },
-  qrImage: {
-  width: 180,
-  height: 180,
-  borderRadius: 8,
-  border: '1px solid #ddd',
-  background: '#fff',
-},
 };

@@ -46,7 +46,7 @@ export default function SignupPage() {
 
   return (
     <main style={styles.page}>
-      <img src="/logo.png" alt="みーてぃんぐ" style={styles.logo} />
+      <img src="/meating_logo.png" alt="みーてぃんぐ" style={styles.logo} />
 
       <section style={styles.content} aria-label="新規登録">
         <h1 style={styles.title}>新規登録</h1>

@@ -1,5 +1,6 @@
 'use client';
 
+import { supabase } from '../lib/supabaseClient';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
@@ -37,11 +38,11 @@ export default function ProfilePage() {
 
   const name = 'ささき しょうま';
 
-  const handleLogoutConfirm = () => {
-    console.log('ログアウト');
-    setIsLogoutModalOpen(false);
-    // TODO: Supabase signOut → router.push('/login')
-  };
+ const handleLogoutConfirm = async () => {
+  await supabase.auth.signOut();
+  setIsLogoutModalOpen(false);
+  router.push('/login');
+};
 
   return (
     <div style={styles.page}>

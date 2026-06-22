@@ -1,6 +1,49 @@
-import type { CSSProperties } from "react";
+'use client';
+
+import { useState } from 'react';
+import type { CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabaseClient';
 
 export default function SignupPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (password !== confirmPassword) {
+      setErrorMessage('パスワードが一致しません。');
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMessage('パスワードは6文字以上で入力してください。');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+    });
+    setIsSubmitting(false);
+
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    setSuccessMessage('登録確認メールを送信しました。メール内のリンクを確認してください。');
+    setTimeout(() => router.push('/login'), 2000);
+  };
+
   return (
     <main style={styles.page}>
       <img src="/logo.png" alt="みーてぃんぐ" style={styles.logo} />
@@ -8,19 +51,51 @@ export default function SignupPage() {
       <section style={styles.content} aria-label="新規登録">
         <h1 style={styles.title}>新規登録</h1>
 
-        <form style={styles.form}>
+        <form style={styles.form} onSubmit={handleSubmit}>
           <label style={styles.fieldLabel}>
-            Gメールアドレス
+            メールアドレス
             <input
               type="email"
               name="email"
               autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               style={styles.input}
             />
           </label>
 
-          <button type="submit" style={styles.submitButton}>
-            送信
+          <label style={styles.fieldLabel}>
+            パスワード
+            <input
+              type="password"
+              name="password"
+              autoComplete="new-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              style={styles.input}
+            />
+          </label>
+
+          <label style={styles.fieldLabel}>
+            パスワード(確認)
+            <input
+              type="password"
+              name="confirmPassword"
+              autoComplete="new-password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              style={styles.input}
+            />
+          </label>
+
+          {errorMessage && <p style={styles.errorText}>{errorMessage}</p>}
+          {successMessage && <p style={styles.successText}>{successMessage}</p>}
+
+          <button type="submit" style={styles.submitButton} disabled={isSubmitting}>
+            {isSubmitting ? '送信中...' : '送信'}
           </button>
         </form>
       </section>
@@ -73,7 +148,7 @@ const styles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 7,
-    marginBottom: 36,
+    marginBottom: 20,
     color: "#1F1F1F",
     fontSize: 12,
     fontWeight: 700,
@@ -90,6 +165,22 @@ const styles: Record<string, CSSProperties> = {
     color: "#1F1F1F",
     fontSize: 14,
     outlineColor: "#F7992D",
+  },
+  errorText: {
+    width: "100%",
+    margin: "-8px 0 12px",
+    color: "#D14343",
+    fontSize: 12,
+    fontWeight: 600,
+    textAlign: "left",
+  },
+  successText: {
+    width: "100%",
+    margin: "-8px 0 12px",
+    color: "#2E7D32",
+    fontSize: 12,
+    fontWeight: 600,
+    textAlign: "left",
   },
   submitButton: {
     width: 139,

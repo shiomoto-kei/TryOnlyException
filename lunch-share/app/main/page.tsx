@@ -89,7 +89,10 @@ export default function HomePage() {
           <div
             style={styles.modalBackdrop}
             role="presentation"
-            onClick={() => setIsModalOpen(false)}
+            onClick={() => { 
+              setMessage('');
+              setIsModalOpen(false);
+             }}
           >
             <section
               aria-modal="true"
@@ -266,6 +269,13 @@ const styles: { [key: string]: CSSProperties } = {
     fontWeight: 700,
     outlineColor: '#F5B042',
     boxSizing: 'border-box',
+  },
+    message: {
+    margin: '2px 0 0',
+    color: '#D32F2F',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.5,
   },
   submitButton: {
     alignSelf: 'center',

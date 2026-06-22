@@ -1,9 +1,15 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
+import {
+  loadStoredProfile,
+  loadUserProfile,
+  saveUserProfile,
+  uploadProfileAvatar,
+} from '../lib/profileStorage';
 
 const PenIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -24,13 +30,31 @@ export default function RegisterInfoPage() {
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    const localProfile = loadStoredProfile();
+    setName(localProfile.name);
+    setTempName(localProfile.name);
+    setAvatarSrc(localProfile.avatarSrc);
+
+    async function syncProfile() {
+      const storedProfile = await loadUserProfile();
+      setName(storedProfile.name);
+      setTempName(storedProfile.name);
+      setAvatarSrc(storedProfile.avatarSrc);
+    }
+
+    syncProfile();
+  }, []);
+
   const handleEditStart = () => {
     setTempName(name);
     setEditing(true);
   };
 
-  const handleEditDone = () => {
-    setName(tempName);
+  const handleEditDone = async () => {
+    const nextName = tempName.trim() || name;
+    setName(nextName);
+    await saveUserProfile({ name: nextName });
     setEditing(false);
   };
 
@@ -39,11 +63,11 @@ export default function RegisterInfoPage() {
     if (e.key === 'Escape') setEditing(false);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setAvatarSrc(url);
+    const avatarUrl = await uploadProfileAvatar(file);
+    setAvatarSrc(avatarUrl);
   };
 
   return (

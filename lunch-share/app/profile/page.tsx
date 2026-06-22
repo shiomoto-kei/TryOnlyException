@@ -1,10 +1,15 @@
 'use client';
 
 import { supabase } from '../lib/supabaseClient';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
+import {
+  loadStoredProfile,
+  loadUserProfile,
+  PROFILE_UPDATED_EVENT,
+} from '../lib/profileStorage';
 
 const LogoutIcon = () => (
   <svg width="48" height="48" viewBox="0 0 81 81" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -35,8 +40,26 @@ export default function ProfilePage() {
   const router = useRouter();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [profile, setProfile] = useState(loadStoredProfile);
 
-  const name = 'ささき しょうま';
+  useEffect(() => {
+    const syncProfile = () => {
+      setProfile(loadStoredProfile());
+    };
+    const syncUserProfile = async () => {
+      setProfile(await loadUserProfile());
+    };
+
+    syncProfile();
+    syncUserProfile();
+    window.addEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+    window.addEventListener('storage', syncProfile);
+
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+      window.removeEventListener('storage', syncProfile);
+    };
+  }, []);
 
  const handleLogoutConfirm = async () => {
   await supabase.auth.signOut();
@@ -51,12 +74,21 @@ export default function ProfilePage() {
       <main style={styles.main}>
         {/* アバター（表示のみ） */}
         <div style={styles.avatarWrap}>
-          <div style={styles.avatar} />
+          <div
+            style={{
+              ...styles.avatar,
+              backgroundImage: profile.avatarSrc
+                ? `url(${profile.avatarSrc})`
+                : undefined,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
         </div>
 
         {/* 名前（表示のみ） */}
         <div style={styles.nameRow}>
-          <span style={styles.nameText}>{name}</span>
+          <span style={styles.nameText}>{profile.name}</span>
         </div>
 
         {/* メニューグリッド */}

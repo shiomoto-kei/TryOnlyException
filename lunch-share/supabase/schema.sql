@@ -16,3 +16,14 @@ create table if not exists public.lunch_posts (
   comment text default '',
   created_at timestamptz not null default now()
 );
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  name text not null default '',
+  avatar_url text,
+  updated_at timestamptz not null default now()
+);
+
+insert into storage.buckets (id, name, public)
+values ('profile-avatars', 'profile-avatars', true)
+on conflict (id) do update set public = true;

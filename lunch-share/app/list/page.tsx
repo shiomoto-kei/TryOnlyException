@@ -6,8 +6,32 @@ import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
 import { createShop, getShops, type Shop } from './action';
 
+const MagnifyingGlass = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 13 13"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    style={{ flexShrink: 0 }}
+  >
+    <g clipPath="url(#clip0_292_559)">
+      <path
+        d="M10.5625 5.28125C10.5625 6.44668 10.1842 7.52324 9.54688 8.39668L12.7613 11.6137C13.0787 11.9311 13.0787 12.4465 12.7613 12.7639C12.4439 13.0813 11.9285 13.0813 11.6111 12.7639L8.39668 9.54688C7.52324 10.1867 6.44668 10.5625 5.28125 10.5625C2.36387 10.5625 0 8.19863 0 5.28125C0 2.36387 2.36387 0 5.28125 0C8.19863 0 10.5625 2.36387 10.5625 5.28125ZM5.28125 8.9375C5.7614 8.9375 6.23684 8.84293 6.68044 8.65918C7.12403 8.47544 7.52709 8.20612 7.86661 7.86661C8.20612 7.52709 8.47544 7.12403 8.65918 6.68044C8.84293 6.23684 8.9375 5.7614 8.9375 5.28125C8.9375 4.8011 8.84293 4.32566 8.65918 3.88206C8.47544 3.43847 8.20612 3.0354 7.86661 2.69589C7.52709 2.35638 7.12403 2.08706 6.68044 1.90332C6.23684 1.71957 5.7614 1.625 5.28125 1.625C4.8011 1.625 4.32566 1.71957 3.88206 1.90332C3.43847 2.08706 3.0354 2.35638 2.69589 2.69589C2.35638 3.0354 2.08706 3.43847 1.90332 3.88206C1.71957 4.32566 1.625 4.8011 1.625 5.28125C1.625 5.7614 1.71957 6.23684 1.90332 6.68044C2.08706 7.12403 2.35638 7.52709 2.69589 7.86661C3.0354 8.20612 3.43847 8.47544 3.88206 8.65918C4.32566 8.84293 4.8011 8.9375 5.28125 8.9375Z"
+        fill="#878787"
+      />
+    </g>
+    <defs>
+      <clipPath id="clip0_292_559">
+        <rect width="13" height="13" fill="white" />
+      </clipPath>
+    </defs>
+  </svg>
+);
+
 export default function ShopListPage() {
   const [shops, setShops] = useState<Shop[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [shopName, setShopName] = useState('');
   const [category, setCategory] = useState('');
@@ -52,23 +76,46 @@ export default function ShopListPage() {
     }
   };
 
+  const filteredShops = shops.filter((shop) => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      shop.name.toLowerCase().includes(q) ||
+      (shop.category ?? '').toLowerCase().includes(q) ||
+      (shop.address ?? '').toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div style={styles.page}>
       <Header />
 
       <main style={styles.main}>
+        {/* Search bar + Add button row */}
         <div style={styles.actionRow}>
+          <div style={styles.searchBar}>
+            <MagnifyingGlass />
+            <input
+              type="text"
+              placeholder="検索"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={styles.searchInput}
+              aria-label="お店を検索"
+            />
+          </div>
+
           <button
             type="button"
             onClick={() => setIsModalOpen(true)}
             style={styles.addButton}
           >
-            お店を追加
+            お店の追加
           </button>
         </div>
 
         <section style={styles.cardList} aria-label="お店一覧">
-          {shops.map((shop) => (
+          {filteredShops.map((shop) => (
             <ShopCard
               key={shop.id}
               name={shop.name}
@@ -179,13 +226,34 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   actionRow: {
     display: 'flex',
-    justifyContent: 'flex-end',
-    marginBottom: 10,
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  searchBar: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    height: 32,
+    padding: '0 10px',
+    background: '#F2F2F2',
+    border: '1px solid #DEDEDE',
+    boxSizing: 'border-box',
+  },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    border: 'none',
+    background: 'transparent',
+    fontSize: 13,
+    color: '#333',
+    outline: 'none',
   },
   addButton: {
-    minWidth: 86,
+    flexShrink: 0,
     height: 35,
-    padding: '0 10px',
+    padding: '0 12px',
     background: '#9EC9FF',
     border: '1px solid #1F1F1F',
     borderRadius: 1,
@@ -194,6 +262,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 700,
     cursor: 'pointer',
     boxShadow: '3px 3px 0 #264A7A',
+    whiteSpace: 'nowrap',
   },
   cardList: {
     display: 'flex',

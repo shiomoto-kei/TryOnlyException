@@ -34,7 +34,7 @@ export default function LoginPage() {
 
     return (
         <main style={styles.page}>
-            <img src="/logo.png" alt="みーてぃんぐ" style={styles.logo} />
+            <img src="/meating_logo.png" alt="みーてぃんぐ" style={styles.logo} />
 
             <section style={styles.content} aria-label="ログイン">
                 <form style={styles.form} onSubmit={handleSubmit}>

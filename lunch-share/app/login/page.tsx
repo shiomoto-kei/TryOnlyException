@@ -1,15 +1,54 @@
-import type { CSSProperties } from "react";
+'use client';
+
+import { useState } from 'react';
+import type { CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabaseClient';
 
 export default function LoginPage() {
+    const router = useRouter();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        setErrorMessage('');
+        setIsSubmitting(true);
+
+        const { error } = await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+        });
+
+        setIsSubmitting(false);
+
+        if (error) {
+            setErrorMessage('メールアドレスまたはパスワードが正しくありません。');
+            return;
+        }
+
+        router.push('/main');
+    };
+
     return (
         <main style={styles.page}>
             <img src="/logo.png" alt="みーてぃんぐ" style={styles.logo} />
 
             <section style={styles.content} aria-label="ログイン">
-                <form style={styles.form}>
+                <form style={styles.form} onSubmit={handleSubmit}>
                     <label style={styles.fieldLabel}>
-                        ユーザーネーム
-                        <input type="text" name="username" autoComplete="username" style={styles.input} />
+                        メールアドレス
+                        <input
+                            type="email"
+                            name="email"
+                            autoComplete="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            style={styles.input}
+                        />
                     </label>
 
                     <label style={styles.fieldLabel}>
@@ -18,12 +57,17 @@ export default function LoginPage() {
                             type="password"
                             name="password"
                             autoComplete="current-password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
                             style={styles.input}
                         />
                     </label>
 
-                    <button type="submit" style={styles.loginButton}>
-                        ログイン
+                    {errorMessage && <p style={styles.errorText}>{errorMessage}</p>}
+
+                    <button type="submit" style={styles.loginButton} disabled={isSubmitting}>
+                        {isSubmitting ? 'ログイン中...' : 'ログイン'}
                     </button>
                 </form>
 
@@ -42,9 +86,9 @@ const styles: Record<string, CSSProperties> = {
         minHeight: "100vh",
         background: "#FCE8A8",
         display: "flex",
-        flexDirection: "column",   // ← 追加
-        alignItems: "center",      // ← 追加
-        justifyContent: "flex-start", // ← centerからflex-startに変更
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-start",
         fontFamily: '"Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif',
     },
     content: {
@@ -53,15 +97,15 @@ const styles: Record<string, CSSProperties> = {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "0 24px 48px",    // ← 上のpadding(142px)を削除
+        padding: "0 24px 48px",
         boxSizing: "border-box",
     },
     logo: {
         width: 360,
-        maxWidth: "calc(100vw - 48px)",  // ← 変更
+        maxWidth: "calc(100vw - 48px)",
         height: "auto",
         objectFit: "contain",
-        marginTop: 142,            // ← paddingの代わりにmarginTopで位置調整
+        marginTop: 142,
         marginBottom: 64,
     },
     form: {
@@ -92,6 +136,14 @@ const styles: Record<string, CSSProperties> = {
         color: "#1F1F1F",
         fontSize: 14,
         outlineColor: "#F7992D",
+    },
+    errorText: {
+        width: "100%",
+        margin: "4px 0 0",
+        color: "#D14343",
+        fontSize: 12,
+        fontWeight: 600,
+        textAlign: "left",
     },
     loginButton: {
         width: 139,

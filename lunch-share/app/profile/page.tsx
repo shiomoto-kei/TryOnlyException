@@ -1,8 +1,9 @@
 'use client';
 
 import { supabase } from '../lib/supabaseClient';
-import { useState } from 'react';
+import { useEffect,useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getOrCreateCurrentUser } from '../lib/currentUser';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 
@@ -32,11 +33,37 @@ const FriendListIcon = () => (
 );
 
 export default function ProfilePage() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
+const [qrImageUrl, setQrImageUrl] = useState('');
+
+useEffect(() => {
+  const loadUser = async () => {
+    const user = await getOrCreateCurrentUser();
+    setCurrentUser(user);
+  };
+
+  loadUser();
+}, []);
+
+useEffect(() => {
+  if (!currentUser || typeof window === 'undefined') return;
+
+  const friendAddUrl = `${window.location.origin}/friend-add?userId=${encodeURIComponent(
+    currentUser.id,
+  )}`;
+
+  setQrImageUrl(
+    `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+      friendAddUrl,
+    )}`,
+  );
+}, [currentUser]);
+  
   const router = useRouter();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
 
-  const name = 'ささき しょうま';
+  //const name = 'ささき しょうま';
 
  const handleLogoutConfirm = async () => {
   await supabase.auth.signOut();
@@ -56,7 +83,9 @@ export default function ProfilePage() {
 
         {/* 名前（表示のみ） */}
         <div style={styles.nameRow}>
-          <span style={styles.nameText}>{name}</span>
+          <span style={styles.nameText}>{name}
+             {currentUser?.name ?? '読み込み中...'}
+          </span>
         </div>
 
         {/* メニューグリッド */}
@@ -138,7 +167,12 @@ export default function ProfilePage() {
               onClick={(e) => e.stopPropagation()}
             >
               <p style={styles.modalTitle}>マイQRコード</p>
+              {/* <div style={styles.qrPlaceholder} /> */}
+              {qrImageUrl ? (
+              <img src={qrImageUrl} alt="マイQRコード" style={styles.qrImage} />
+            ) : (
               <div style={styles.qrPlaceholder} />
+            )}
               <div style={styles.modalButtons}>
                 <button
                   onClick={() => setIsQRModalOpen(false)}
@@ -302,4 +336,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderRadius: 8,
     background: '#d4d4d4',
   },
+  qrImage: {
+  width: 180,
+  height: 180,
+  borderRadius: 8,
+  border: '1px solid #ddd',
+  background: '#fff',
+},
 };

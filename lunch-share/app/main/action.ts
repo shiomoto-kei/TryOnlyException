@@ -95,6 +95,6 @@ export async function createLunchPost(
 
   return {
     ok: true,
-    message: '投稿しました。',
+    message: '投稿されました',
   };
 }

@@ -1,4 +1,6 @@
-﻿'use server';
+'use server';
+
+import { supabaseServer } from '../lib/supabaseServer';
 
 export type Member = {
   id: string;
@@ -88,10 +90,18 @@ export async function createLunchPost(
     };
   }
 
-  // TODO: Supabase 準備後に insert へ差し替え
-  // await supabase.from('lunch_posts').insert({ shop, menu, comment });
+  const { error } = await supabaseServer.from('lunch_posts').insert({
+    shop,
+    menu,
+    comment,
+  });
 
-  console.log('mock lunch post:', { shop, menu, comment });
+  if (error) {
+    return {
+      ok: false,
+      message: `投稿に失敗しました: ${error.message}`,
+    };
+  }
 
   return {
     ok: true,

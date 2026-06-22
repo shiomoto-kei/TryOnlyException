@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 
@@ -12,6 +13,7 @@ const PenIcon = () => (
 );
 
 export default function RegisterInfoPage() {
+  const router = useRouter();
   const [name, setName] = useState('ささき しょうま');
   const [editing, setEditing] = useState(false);
   const [tempName, setTempName] = useState(name);
@@ -49,6 +51,16 @@ export default function RegisterInfoPage() {
       <Header />
 
       <main style={styles.main}>
+        {/* 戻るボタン */}
+        <div style={styles.backRow}>
+          <button
+            onClick={() => router.push('/profile')}
+            style={styles.backButton}
+          >
+            {'<'}
+          </button>
+        </div>
+
         {/* アバター */}
         <div style={styles.avatarWrap}>
           <div
@@ -102,7 +114,6 @@ export default function RegisterInfoPage() {
 
         {/* メールアドレス・パスワード */}
         <div style={styles.fieldList}>
-          {/* メールアドレス */}
           <div style={styles.fieldRow}>
             <span style={styles.fieldLabel}>メールアドレス</span>
             {editingEmail ? (
@@ -127,7 +138,6 @@ export default function RegisterInfoPage() {
             )}
           </div>
 
-          {/* パスワード */}
           <div style={styles.fieldRow}>
             <span style={styles.fieldLabel}>パスワード</span>
             {editingPassword ? (
@@ -170,11 +180,30 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   main: {
     flex: 1,
-    padding: '24px 20px',
+    padding: '12px 20px 24px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: 20,
+  },
+  backRow: {
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'flex-start',
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    border: '1px solid #ccc',
+    borderRadius: 6,
+    background: '#fff',
+    fontSize: 16,
+    fontWeight: 700,
+    color: '#333',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarWrap: {
     display: 'flex',

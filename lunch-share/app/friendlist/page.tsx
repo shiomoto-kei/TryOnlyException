@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 
@@ -18,6 +19,7 @@ const initialFriends: Friend[] = [
 ];
 
 export default function FriendListPage() {
+  const router = useRouter();
   const [friends] = useState<Friend[]>(initialFriends);
 
   return (
@@ -25,6 +27,16 @@ export default function FriendListPage() {
       <Header />
 
       <main style={styles.main}>
+        {/* 戻るボタン */}
+        <div style={styles.backRow}>
+          <button
+            onClick={() => router.push('/profile')}
+            style={styles.backButton}
+          >
+            {'<'}
+          </button>
+        </div>
+
         <div style={styles.titleWrap}>
           <span style={styles.titleText}>フレンド一覧</span>
         </div>
@@ -55,11 +67,30 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   main: {
     flex: 1,
-    padding: '24px 20px',
+    padding: '12px 20px 24px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     gap: 24,
+  },
+  backRow: {
+    width: '100%',
+    display: 'flex',
+    justifyContent: 'flex-start',
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    border: '1px solid #ccc',
+    borderRadius: 6,
+    background: '#fff',
+    fontSize: 16,
+    fontWeight: 700,
+    color: '#333',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleWrap: {
     background: '#FFF6C9',

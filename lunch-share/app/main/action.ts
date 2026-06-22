@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 import { supabaseServer } from '../lib/supabaseServer';
 
@@ -18,9 +18,18 @@ export type MemberPosition = Member & {
   angle: number;
 };
 
+export type TodayLunchPost = {
+  id: string;
+  shop: string;
+  menu: string;
+  comment: string;
+  createdAt: string;
+};
+
 export type MainPageData = {
   group: Group;
   members: MemberPosition[];
+  todayPosts: TodayLunchPost[];
 };
 
 export type LunchPostInput = {
@@ -32,6 +41,15 @@ export type LunchPostInput = {
 export type LunchPostResult = {
   ok: boolean;
   message: string;
+};
+
+type LunchPostRow = {
+  id: string | number;
+  shop: string | null;
+  menu: string | null;
+  comment?: string | null;
+  created_at?: string | null;
+  createdAt?: string | null;
 };
 
 function buildMemberPositions(
@@ -46,6 +64,36 @@ function buildMemberPositions(
     ...member,
     angle: startAngle + angleStep * index,
   }));
+}
+
+function getTokyoDayRange(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const year = Number(parts.find((part) => part.type === 'year')?.value);
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  const day = Number(parts.find((part) => part.type === 'day')?.value);
+  const start = new Date(Date.UTC(year, month - 1, day) - 9 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+
+  return {
+    startIso: start.toISOString(),
+    endIso: end.toISOString(),
+  };
+}
+
+function toTodayLunchPost(row: LunchPostRow): TodayLunchPost {
+  return {
+    id: String(row.id),
+    shop: row.shop ?? '',
+    menu: row.menu ?? '',
+    comment: row.comment ?? '',
+    createdAt: row.created_at ?? row.createdAt ?? '',
+  };
 }
 
 export async function getMainPageData(): Promise<MainPageData> {
@@ -70,9 +118,26 @@ export async function getMainPageData(): Promise<MainPageData> {
     { id: 'member-8', name: '中村', avatarColor: '#F472B6' },
   ];
 
+  const { startIso, endIso } = getTokyoDayRange();
+  const { data: todayPosts, error } = await supabaseServer
+    .from('lunch_posts')
+    .select('id, shop, menu, comment, created_at')
+    .gte('created_at', startIso)
+    .lt('created_at', endIso)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('today lunch posts fetch failed:', error.message);
+  }
+
   return {
     group,
     members: buildMemberPositions(members),
+    todayPosts: error
+      ? []
+      : (todayPosts ?? []).map((row) =>
+          toTodayLunchPost(row as LunchPostRow),
+        ),
   };
 }
 
@@ -90,11 +155,11 @@ export async function createLunchPost(
     };
   }
 
- const { error } = await supabaseServer.from('shops').insert({
-  name: shop,       // 「行きたいお店」→ name列（必須）
-  category: menu,   // 「食べたいメニュー」→ category列で代用
-  comment,          // そのままcomment列へ
-});
+  const { error } = await supabaseServer.from('lunch_posts').insert({
+    shop,
+    menu,
+    comment,
+  });
 
   if (error) {
     return {
@@ -105,6 +170,6 @@ export async function createLunchPost(
 
   return {
     ok: true,
-    message: '投稿されました',
+    message: '今日行きたいお店に追加しました。',
   };
 }

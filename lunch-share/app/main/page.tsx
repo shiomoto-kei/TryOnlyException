@@ -14,26 +14,32 @@ export default function HomePage() {
   const [comment, setComment] = useState('');
   const [pageData, setPageData] = useState<MainPageData | null>(null);
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadMainPageData = async () => {
+    const data = await getMainPageData();
+    setPageData(data);
+  };
 
   useEffect(() => {
-    async function loadData() {
-      const data = await getMainPageData();
-      setPageData(data);
-    }
-
-    loadData();
+    loadMainPageData();
   }, []);
 
   const handleAdd = () => {
+    setMessage('');
     setIsModalOpen(true);
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     const result = await createLunchPost({
       shop,
       menu,
       comment,
     });
+    setIsSubmitting(false);
 
     setMessage(result.message);
 
@@ -42,6 +48,7 @@ export default function HomePage() {
     setShop('');
     setMenu('');
     setComment('');
+    await loadMainPageData();
     setIsModalOpen(false);
   };
 
@@ -62,6 +69,7 @@ export default function HomePage() {
       </div>
 
       <main style={styles.main}>
+        <div style={styles.mainContent}>
         <div style={styles.circleArea}>
           {pageData?.members.map((member) => {
             const radius = 110;
@@ -83,6 +91,28 @@ export default function HomePage() {
           })}
 
           <button onClick={handleAdd} style={styles.addButton}>＋</button>
+        </div>
+
+        <section style={styles.todayPanel} aria-label="今日行きたいお店">
+          <h2 style={styles.todayTitle}>今日行きたいお店</h2>
+          {pageData?.todayPosts.length ? (
+            <div style={styles.todayList}>
+              {pageData.todayPosts.map((post) => (
+                <article key={post.id} style={styles.todayItem}>
+                  <div style={styles.todayItemHeader}>
+                    <span style={styles.todayShop}>{post.shop}</span>
+                    <span style={styles.todayMenu}>{post.menu}</span>
+                  </div>
+                  {post.comment && (
+                    <p style={styles.todayComment}>{post.comment}</p>
+                  )}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p style={styles.emptyText}>まだ登録されていません</p>
+          )}
+        </section>
         </div>
 
         {isModalOpen && (
@@ -133,8 +163,12 @@ export default function HomePage() {
 
               {message && <p style={styles.message}>{message}</p>}
 
-              <button onClick={handleSubmit} style={styles.submitButton}>
-                投稿
+              <button
+                onClick={handleSubmit}
+                style={styles.submitButton}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? '投稿中' : '投稿'}
               </button>
             </section>
           </div>
@@ -169,6 +203,16 @@ const styles: { [key: string]: CSSProperties } = {
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    padding: '24px 16px 88px',
+    boxSizing: 'border-box',
+  },
+  mainContent: {
+    width: '100%',
+    maxWidth: 320,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 18,
   },
   circleArea: {
     width: 260,
@@ -195,6 +239,59 @@ const styles: { [key: string]: CSSProperties } = {
     border: 'none',
     cursor: 'pointer',
     boxShadow: '0 4px 8px rgba(255,87,87,0.4)',
+  },
+  todayPanel: {
+    width: '100%',
+    borderTop: '1px solid #eee',
+    paddingTop: 14,
+  },
+  todayTitle: {
+    margin: '0 0 10px',
+    color: '#333',
+    fontSize: 14,
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+  todayList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+  },
+  todayItem: {
+    padding: '9px 10px',
+    border: '1px solid #ddd',
+    borderRadius: 8,
+    background: '#fff',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+  },
+  todayItemHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  todayShop: {
+    minWidth: 0,
+    color: '#222',
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  todayMenu: {
+    color: '#777',
+    fontSize: 11,
+    fontWeight: 700,
+    whiteSpace: 'nowrap',
+  },
+  todayComment: {
+    margin: '4px 0 0',
+    color: '#555',
+    fontSize: 11,
+    lineHeight: 1.4,
+  },
+  emptyText: {
+    margin: 0,
+    color: '#999',
+    fontSize: 12,
+    textAlign: 'center',
   },
   modalBackdrop: {
     position: 'absolute',

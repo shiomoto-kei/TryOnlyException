@@ -5,6 +5,8 @@ type ShopCardProps = {
   postalCode: string;
   address: string;
   category: string;
+  onSelect?: () => void;
+  onDelete?: () => void;
 };
 
 export default function ShopCard({
@@ -12,17 +14,33 @@ export default function ShopCard({
   postalCode,
   address,
   category,
+  onSelect,
+  onDelete,
 }: ShopCardProps) {
   return (
-    <article style={styles.card}>
-      <Image
-        src="/pushpin.png"
-        alt=""
-        width={29}
-        height={35}
-        style={styles.pinImage}
-        aria-hidden="true"
-      />
+    <article
+      style={styles.card}
+      onClick={onSelect}
+      role={onSelect ? 'button' : undefined}
+    >
+      <button
+        type="button"
+        aria-label={`${name}をリストから削除`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete?.();
+        }}
+        style={styles.pinButton}
+      >
+        <Image
+          src="/pushpin.png"
+          alt=""
+          width={29}
+          height={35}
+          style={styles.pinImage}
+          aria-hidden="true"
+        />
+      </button>
 
       <div style={styles.headerRow}>
         <h2 style={styles.name}>{name}</h2>
@@ -51,17 +69,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #333',
     boxShadow: '1px 2px 2px rgba(0,0,0,0.16)',
     transform: 'rotate(2.8deg)',
+    cursor: 'pointer',
   },
-  pinImage: {
+  pinButton: {
     position: 'absolute',
     top: -5,
     left: '57%',
+    transform: 'translateX(-50%)',
+    zIndex: 2,
+    border: 'none',
+    background: 'transparent',
+    padding: 0,
+    cursor: 'pointer',
+  },
+  pinImage: {
     width: 29,
     height: 35,
     objectFit: 'contain',
-    transform: 'translateX(-50%)',
-    zIndex: 2,
-    pointerEvents: 'none',
+    display: 'block',
   },
   headerRow: {
     display: 'flex',

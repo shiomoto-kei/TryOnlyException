@@ -84,3 +84,10 @@ export async function createShop(input: CreateShopInput): Promise<Shop> {
 
   return toShop(data as ShopRow);
 }
+export async function deleteShop(id: string): Promise<void> {
+  const { error } = await supabaseServer.from('shops').delete().eq('id', id);
+
+  if (error) {
+    throw new Error(`お店の削除に失敗しました: ${error.message}`);
+  }
+}

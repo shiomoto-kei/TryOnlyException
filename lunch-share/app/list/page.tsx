@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
-import { createShop, getShops, type Shop } from './action';
+import { createShop, deleteShop, getShops, type Shop } from './action';
 
 const MagnifyingGlass = () => (
   <svg
@@ -48,6 +48,16 @@ export default function ShopListPage() {
 
     loadShops();
   }, []);
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('このお店をリストから削除しますか？')) return;
+    try {
+      await deleteShop(id);
+      setShops((prev) => prev.filter((s) => s.id !== id));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '削除に失敗しました');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!shopName.trim()) {
@@ -117,20 +127,16 @@ export default function ShopListPage() {
 
         <section style={styles.cardList} aria-label="お店一覧">
           {filteredShops.map((shop) => (
-          <button
-            key={shop.id}
-            type="button"
-            onClick={() => setSelectedShop(shop)}
-            style={styles.cardButton}
-          >
             <ShopCard
+              key={shop.id}
               name={shop.name}
               postalCode={shop.postalCode}
               address={shop.address}
               category={shop.category}
+              onSelect={() => setSelectedShop(shop)}
+              onDelete={() => handleDelete(shop.id)}
             />
-          </button>
-        ))}
+          ))}
         </section>
 
         {isModalOpen && (
@@ -435,66 +441,52 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     boxShadow: '0 2px 0 #C98421',
   },
-  cardButton: {
-  width: '100%',
-  padding: 0,
-  border: 'none',
-  background: 'transparent',
-  textAlign: 'left',
-  cursor: 'pointer',
-},
-
-detailTitle: {
-  margin: '0 0 4px',
-  color: '#333',
-  fontSize: 18,
-  fontWeight: 700,
-  textAlign: 'center',
-},
-
-detailRow: {
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: 6,
-  borderBottom: '1px solid #eee',
-  paddingBottom: 6,
-},
-
-detailText: {
-  flex: 1,
-  minWidth: 0,
-  color: '#333',
-  fontSize: 12,
-  fontWeight: 700,
-  lineHeight: 1.5,
-  wordBreak: 'break-word',
-},
-
-detailCommentBlock: {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 6,
-},
-
-detailComment: {
-  minHeight: 72,
-  margin: 0,
-  padding: '8px',
-  border: '1px solid #ddd',
-  borderRadius: 4,
-  color: '#333',
-  background: '#fffdf5',
-  fontSize: 12,
-  fontWeight: 700,
-  lineHeight: 1.6,
-  whiteSpace: 'pre-wrap',
-  wordBreak: 'break-word',
-},
-
-detailImage: {
-  width: '100%',
-  maxHeight: 180,
-  objectFit: 'cover',
-  borderRadius: 6,
-},
+  detailTitle: {
+    margin: '0 0 4px',
+    color: '#333',
+    fontSize: 18,
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+  detailRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 6,
+    borderBottom: '1px solid #eee',
+    paddingBottom: 6,
+  },
+  detailText: {
+    flex: 1,
+    minWidth: 0,
+    color: '#333',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.5,
+    wordBreak: 'break-word',
+  },
+  detailCommentBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  detailComment: {
+    minHeight: 72,
+    margin: 0,
+    padding: '8px',
+    border: '1px solid #ddd',
+    borderRadius: 4,
+    color: '#333',
+    background: '#fffdf5',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.6,
+    whiteSpace: 'pre-wrap',
+    wordBreak: 'break-word',
+  },
+  detailImage: {
+    width: '100%',
+    maxHeight: 180,
+    objectFit: 'cover',
+    borderRadius: 6,
+  },
 };

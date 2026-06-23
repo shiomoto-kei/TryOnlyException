@@ -37,9 +37,16 @@ const FriendListIcon = () => (
   </svg>
 );
 
+type CurrentUser = {
+  id: string;
+  name: string;
+  email: string | null;
+  created_at?: string | null;
+};
+
 export default function ProfilePage() {
-  const [currentUser, setCurrentUser] = useState<any>(null);
-const [qrImageUrl, setQrImageUrl] = useState('');
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [qrImageUrl, setQrImageUrl] = useState('');
 
 useEffect(() => {
   const loadUser = async () => {
@@ -365,5 +372,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     height: 160,
     borderRadius: 8,
     background: '#d4d4d4',
+  },
+  qrImage: {
+    width: 180,
+    height: 180,
+    borderRadius: 8,
   },
 };

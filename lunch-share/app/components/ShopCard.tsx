@@ -1,10 +1,14 @@
 import Image from 'next/image';
+import { useState } from 'react';
 
 type ShopCardProps = {
   name: string;
   postalCode: string;
   address: string;
   category: string;
+  isDeleting?: boolean;
+  onClick?: () => void;
+  onPinDrop?: () => void;
 };
 
 export default function ShopCard({
@@ -12,17 +16,68 @@ export default function ShopCard({
   postalCode,
   address,
   category,
+  isDeleting = false,
+  onClick,
+  onPinDrop,
 }: ShopCardProps) {
+  const [pinY, setPinY] = useState(0);
+  const [dragStartY, setDragStartY] = useState<number | null>(null);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragStartY(e.clientY);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (dragStartY === null) return;
+    e.stopPropagation();
+    setPinY(Math.max(0, e.clientY - dragStartY));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+
+    if (pinY > 80) {
+      onPinDrop?.();
+    }
+
+    setPinY(0);
+    setDragStartY(null);
+  };
+
   return (
-    <article style={styles.card}>
-      <Image
-        src="/pushpin.png"
-        alt=""
-        width={29}
-        height={35}
-        style={styles.pinImage}
-        aria-hidden="true"
-      />
+    <article
+      style={{
+        ...styles.card,
+        ...(onClick ? styles.clickableCard : {}),
+        ...(isDeleting ? styles.fallingCard : {}),
+      }}
+      onClick={onClick}
+    >
+      <button
+        type="button"
+        aria-label={`${name}の口コミを削除`}
+        style={{
+          ...styles.pinButton,
+          transform: `translateX(-50%) translateY(${pinY}px)`,
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        <Image
+          src="/pushpin.png"
+          alt=""
+          width={29}
+          height={35}
+          style={styles.pinImage}
+          aria-hidden="true"
+          draggable={false}
+        />
+      </button>
 
       <div style={styles.headerRow}>
         <h2 style={styles.name}>{name}</h2>
@@ -51,6 +106,28 @@ const styles: { [key: string]: React.CSSProperties } = {
     border: '1px solid #333',
     boxShadow: '1px 2px 2px rgba(0,0,0,0.16)',
     transform: 'rotate(2.8deg)',
+    transition: 'transform 520ms ease-in, opacity 520ms ease-in',
+  },
+  clickableCard: {
+    cursor: 'pointer',
+  },
+  fallingCard: {
+    transform: 'translateY(120vh) rotate(18deg)',
+    opacity: 0,
+    pointerEvents: 'none',
+  },
+  pinButton: {
+    position: 'absolute',
+    top: -5,
+    left: '57%',
+    zIndex: 2,
+    width: 34,
+    height: 40,
+    padding: 0,
+    border: 'none',
+    background: 'transparent',
+    cursor: 'grab',
+    touchAction: 'none',
   },
   pinImage: {
     position: 'absolute',

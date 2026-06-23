@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
-import { createShop, getShops, type Shop } from './action';
+import { createShop, deleteShop, getShops, type Shop } from './action';
 
 const MagnifyingGlass = () => (
   <svg
@@ -39,6 +39,7 @@ export default function ShopListPage() {
   const [address, setAddress] = useState('');
   const [comment, setComment] = useState('');
   const [message, setMessage] = useState('');
+  const [deletingShopIds, setDeletingShopIds] = useState<string[]>([]);
 
   useEffect(() => {
     const loadShops = async () => {
@@ -76,7 +77,25 @@ export default function ShopListPage() {
       );
     }
   };
+const handleDeleteShop = async (shop: Shop) => {
+  if (deletingShopIds.includes(shop.id)) return;
 
+  setSelectedShop(null);
+  setDeletingShopIds((prev) => [...prev, shop.id]);
+
+  window.setTimeout(async () => {
+    try {
+      await deleteShop(shop.id);
+      setShops((prev) => prev.filter((item) => item.id !== shop.id));
+      setDeletingShopIds((prev) => prev.filter((id) => id !== shop.id));
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : '削除に失敗しました'
+      );
+      setDeletingShopIds((prev) => prev.filter((id) => id !== shop.id));
+    }
+  }, 520);
+};
   const filteredShops = shops.filter((shop) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;
@@ -117,22 +136,18 @@ export default function ShopListPage() {
 
         <section style={styles.cardList} aria-label="お店一覧">
           {filteredShops.map((shop) => (
-          <button
+          <ShopCard
             key={shop.id}
-            type="button"
+            name={shop.name}
+            postalCode={shop.postalCode}
+            address={shop.address}
+            category={shop.category}
+            isDeleting={deletingShopIds.includes(shop.id)}
             onClick={() => setSelectedShop(shop)}
-            style={styles.cardButton}
-          >
-            <ShopCard
-              name={shop.name}
-              postalCode={shop.postalCode}
-              address={shop.address}
-              category={shop.category}
-            />
-          </button>
+            onPinDrop={() => handleDeleteShop(shop)}
+          />
         ))}
         </section>
-
         {isModalOpen && (
           <div
             style={styles.modalBackdrop}

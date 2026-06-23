@@ -30,6 +30,7 @@ const MagnifyingGlass = () => (
 );
 
 export default function ShopListPage() {
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -116,14 +117,20 @@ export default function ShopListPage() {
 
         <section style={styles.cardList} aria-label="お店一覧">
           {filteredShops.map((shop) => (
+          <button
+            key={shop.id}
+            type="button"
+            onClick={() => setSelectedShop(shop)}
+            style={styles.cardButton}
+          >
             <ShopCard
-              key={shop.id}
               name={shop.name}
               postalCode={shop.postalCode}
               address={shop.address}
               category={shop.category}
             />
-          ))}
+          </button>
+        ))}
         </section>
 
         {isModalOpen && (
@@ -201,6 +208,67 @@ export default function ShopListPage() {
             </section>
           </div>
         )}
+        {selectedShop && (
+        <div
+          style={styles.modalBackdrop}
+          role="presentation"
+          onClick={() => setSelectedShop(null)}
+        >
+          <section
+            aria-modal="true"
+            role="dialog"
+            aria-label="お店の詳細"
+            style={styles.modalCard}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={styles.detailTitle}>{selectedShop.name}</h2>
+
+            <div style={styles.detailRow}>
+              <span style={styles.label}>カテゴリ：</span>
+              <span style={styles.detailText}>
+                {selectedShop.category || '未登録'}
+              </span>
+            </div>
+
+            <div style={styles.detailRow}>
+              <span style={styles.label}>郵便番号：</span>
+              <span style={styles.detailText}>
+                {selectedShop.postalCode || '未登録'}
+              </span>
+            </div>
+
+            <div style={styles.detailRow}>
+              <span style={styles.label}>住所：</span>
+              <span style={styles.detailText}>
+                {selectedShop.address || '未登録'}
+              </span>
+            </div>
+
+            <div style={styles.detailCommentBlock}>
+              <span style={styles.label}>口コミ：</span>
+              <p style={styles.detailComment}>
+                {selectedShop.comment || '口コミはまだありません'}
+              </p>
+            </div>
+
+            {selectedShop.imageUrl && (
+              <img
+                src={selectedShop.imageUrl}
+                alt={`${selectedShop.name}の画像`}
+                style={styles.detailImage}
+              />
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSelectedShop(null)}
+              style={styles.submitButton}
+            >
+              閉じる
+            </button>
+          </section>
+        </div>
+      )}
       </main>
 
       <BottomNav />
@@ -367,4 +435,66 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     boxShadow: '0 2px 0 #C98421',
   },
+  cardButton: {
+  width: '100%',
+  padding: 0,
+  border: 'none',
+  background: 'transparent',
+  textAlign: 'left',
+  cursor: 'pointer',
+},
+
+detailTitle: {
+  margin: '0 0 4px',
+  color: '#333',
+  fontSize: 18,
+  fontWeight: 700,
+  textAlign: 'center',
+},
+
+detailRow: {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 6,
+  borderBottom: '1px solid #eee',
+  paddingBottom: 6,
+},
+
+detailText: {
+  flex: 1,
+  minWidth: 0,
+  color: '#333',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1.5,
+  wordBreak: 'break-word',
+},
+
+detailCommentBlock: {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+},
+
+detailComment: {
+  minHeight: 72,
+  margin: 0,
+  padding: '8px',
+  border: '1px solid #ddd',
+  borderRadius: 4,
+  color: '#333',
+  background: '#fffdf5',
+  fontSize: 12,
+  fontWeight: 700,
+  lineHeight: 1.6,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-word',
+},
+
+detailImage: {
+  width: '100%',
+  maxHeight: 180,
+  objectFit: 'cover',
+  borderRadius: 6,
+},
 };

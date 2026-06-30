@@ -69,6 +69,10 @@ export default function LoginPage() {
                     <button type="submit" style={styles.loginButton} disabled={isSubmitting}>
                         {isSubmitting ? 'ログイン中...' : 'ログイン'}
                     </button>
+
+                    <a href="/forgot-password" style={styles.forgotPasswordLink}>
+                        パスワードをお忘れの場合
+                    </a>
                 </form>
 
                 <div style={styles.divider} />
@@ -157,6 +161,14 @@ const styles: Record<string, CSSProperties> = {
         fontWeight: 700,
         letterSpacing: 0,
         cursor: "pointer",
+    },
+    forgotPasswordLink: {
+        marginTop: 18,
+        color: "#1F1F1F",
+        fontSize: 12,
+        fontWeight: 500,
+        letterSpacing: 0,
+        textDecoration: "none",
     },
     divider: {
         width: "100%",

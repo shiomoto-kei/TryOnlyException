@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
+import PushNotificationManager from '../components/PushNotificationManager';
 import { createLunchPost, getMainPageData } from './action';
 import type { MainPageData } from './action';
 
@@ -60,6 +61,8 @@ export default function HomePage() {
           {pageData?.group.name ?? '読み込み中...'}
         </span>
       </div>
+
+      <PushNotificationManager />
 
       <main style={styles.main}>
         <div style={styles.circleArea}>

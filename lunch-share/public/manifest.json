@@ -1,0 +1,24 @@
+{
+  "name": "ランチシェア",
+  "short_name": "ランチシェア",
+  "description": "今日のランチを仲間とシェアするアプリ",
+  "start_url": "/main",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#FF5757",
+  "icons": [
+    {
+      "src": "/meating_icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/meating_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

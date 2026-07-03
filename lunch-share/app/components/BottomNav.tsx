@@ -61,8 +61,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     padding: '8px 16px',
     borderTop: '1px solid #eee',
     background: '#F8F5F2',
-    position: 'relative',
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 64,
+    zIndex: 100,
   },
   navItem: {
     background: 'transparent',

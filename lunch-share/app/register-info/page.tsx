@@ -4,12 +4,15 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
+import { supabase } from '../lib/supabaseClient';
 import {
   loadStoredProfile,
   loadUserProfile,
   saveUserProfile,
   uploadProfileAvatar,
 } from '../lib/profileStorage';
+
+const LOGIN_INFO_STORAGE_KEY = 'lunch-share-login-info';
 
 const PenIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -23,8 +26,8 @@ export default function RegisterInfoPage() {
   const [name, setName] = useState('ささき しょうま');
   const [editing, setEditing] = useState(false);
   const [tempName, setTempName] = useState(name);
-  const [email, setEmail] = useState('1234567@ecc.ac.jp');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [editingEmail, setEditingEmail] = useState(false);
   const [editingPassword, setEditingPassword] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
@@ -42,6 +45,30 @@ export default function RegisterInfoPage() {
       setTempName(storedProfile.name);
       setAvatarSrc(storedProfile.avatarSrc);
     }
+    async function syncLoginInfo() {
+  const { data } = await supabase.auth.getUser();
+  const authEmail = data.user?.email ?? '';
+  const storedLoginInfo = window.localStorage.getItem(LOGIN_INFO_STORAGE_KEY);
+
+  if (storedLoginInfo) {
+    try {
+      const parsedLoginInfo = JSON.parse(storedLoginInfo) as {
+        email?: string;
+        password?: string;
+      };
+
+      setEmail(authEmail || parsedLoginInfo.email || '');
+      setPassword(parsedLoginInfo.password || '');
+      return;
+    } catch {
+      window.localStorage.removeItem(LOGIN_INFO_STORAGE_KEY);
+    }
+  }
+
+  setEmail(authEmail);
+}
+
+syncLoginInfo();
 
     syncProfile();
   }, []);
@@ -175,7 +202,7 @@ export default function RegisterInfoPage() {
               />
             ) : (
               <>
-                <span style={styles.fieldValue}>{'•'.repeat(password.length)}</span>
+                <span style={styles.fieldValue}>{password}</span>
                 <button
                   style={styles.arrowBtn}
                   onClick={() => setEditingPassword(true)}

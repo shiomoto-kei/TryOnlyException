@@ -7,8 +7,17 @@ import BottomNav from '../components/BottomNav';
 import { createLunchPost, getMainPageData } from './action';
 import type { MainPageData } from './action';
 
+const sampleStatuses: { id: string; name: string; mealStatus: 'ある' | 'ない' }[] = [
+  { id: '1', name: 'ささき しょうま', mealStatus: 'ある' },
+  { id: '2', name: 'ささき しょうま', mealStatus: 'ない' },
+  { id: '3', name: 'ささき しょうま', mealStatus: 'ない' },
+  { id: '4', name: 'ささき しょうま', mealStatus: 'ある' },
+  { id: '5', name: 'ささき しょうま', mealStatus: 'ある' },
+];
+
 export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [shop, setShop] = useState('');
   const [menu, setMenu] = useState('');
   const [comment, setComment] = useState('');
@@ -49,7 +58,11 @@ export default function HomePage() {
     <div style={styles.page}>
       <Header />
 
-      <div style={styles.groupRow}>
+      <button
+        type="button"
+        onClick={() => setIsStatusModalOpen(true)}
+        style={styles.groupRow}
+      >
         <div
           style={{
             ...styles.groupIcon,
@@ -59,7 +72,7 @@ export default function HomePage() {
         <span style={styles.groupName}>
           {pageData?.group.name ?? '読み込み中...'}
         </span>
-      </div>
+      </button>
 
       <main style={styles.main}>
         <div style={styles.circleArea}>
@@ -85,14 +98,60 @@ export default function HomePage() {
           <button onClick={handleAdd} style={styles.addButton}>＋</button>
         </div>
 
+        {isStatusModalOpen && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setIsStatusModalOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              role="dialog"
+              aria-label="みんなのご飯状況"
+              style={styles.statusModalCard}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div style={styles.flagWrapper}>
+                <img src="/flag.png" alt="" style={styles.flagImage} />
+                <span style={styles.flagText}>みんなのご飯状況</span>
+              </div>
+
+              <ul style={styles.statusList}>
+                {sampleStatuses.map((member) => (
+                  <li key={member.id} style={styles.statusRow}>
+                    <div
+                      style={{
+                        ...styles.statusAvatar,
+                        background:
+                          pageData?.members.find((m) => m.id === member.id)?.avatarColor ?? '#d4d4d4',
+                      }}
+                    />
+                    <span style={styles.statusName}>{member.name}</span>
+                    <span
+                      style={{
+                        ...styles.statusBadge,
+                        ...(member.mealStatus === 'ある'
+                          ? styles.statusBadgeYes
+                          : styles.statusBadgeNo),
+                      }}
+                    >
+                      {member.mealStatus}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        )}
+
         {isModalOpen && (
           <div
             style={styles.modalBackdrop}
             role="presentation"
-            onClick={() => { 
+            onClick={() => {
               setMessage('');
               setIsModalOpen(false);
-             }}
+            }}
           >
             <section
               aria-modal="true"
@@ -160,6 +219,11 @@ const styles: { [key: string]: CSSProperties } = {
     gap: 8,
     padding: '12px 16px',
     borderBottom: '1px solid #f0f0f0',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    width: '100%',
+    textAlign: 'left',
   },
   groupIcon: { width: 20, height: 20, borderRadius: '50%', background: '#e0e0e0' },
   groupName: { fontSize: 14, color: '#333' },
@@ -218,6 +282,79 @@ const styles: { [key: string]: CSSProperties } = {
     gap: 10,
     boxSizing: 'border-box',
   },
+  statusModalCard: {
+    width: 'min(78vw, 320px)',
+    padding: '0 18px 20px',
+    border: '1px solid #888',
+    borderRadius: 14,
+    background: '#fff',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    display: 'flex',
+    flexDirection: 'column',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+  },
+  flagWrapper: {
+    position: 'relative',
+    width: 'calc(100% + 36px)',
+    margin: '20px -18px 14px',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  flagImage: {
+    width: '100%',
+    height: 'auto',
+    display: 'block',
+  },
+  flagText: {
+    position: 'absolute',
+    left: 28,
+    color: '#F5B042',
+    fontSize: 15,
+    fontWeight: 700,
+  },
+  statusList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 14,
+  },
+  statusRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+  },
+  statusAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: '50%',
+    background: '#d4d4d4',
+    flexShrink: 0,
+  },
+  statusName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: 700,
+    color: '#333',
+  },
+  statusBadge: {
+    minWidth: 44,
+    textAlign: 'center',
+    padding: '3px 10px',
+    borderRadius: 10,
+    fontSize: 11,
+    fontWeight: 700,
+  },
+  statusBadgeYes: {
+    background: '#FBD9E6',
+    color: '#D6437A',
+  },
+  statusBadgeNo: {
+    background: '#D7ECF7',
+    color: '#3E8FBF',
+  },
   field: {
     display: 'flex',
     flexDirection: 'column',
@@ -270,7 +407,7 @@ const styles: { [key: string]: CSSProperties } = {
     outlineColor: '#F5B042',
     boxSizing: 'border-box',
   },
-    message: {
+  message: {
     margin: '2px 0 0',
     color: '#D32F2F',
     fontSize: 12,

@@ -10,6 +10,7 @@ import {
   loadStoredProfile,
   loadUserProfile,
   PROFILE_UPDATED_EVENT,
+  type StoredProfile,
 } from '../lib/profileStorage';
 
 const LogoutIcon = () => (
@@ -43,6 +44,10 @@ type CurrentUser = {
   email: string | null;
   created_at?: string | null;
 };
+const DEFAULT_PROFILE: StoredProfile = {
+  name: 'ゲストユーザー',
+  avatarSrc: null,
+};
 
 export default function ProfilePage() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -50,8 +55,16 @@ export default function ProfilePage() {
 
 useEffect(() => {
   const loadUser = async () => {
-    const user = await getOrCreateCurrentUser();
-    setCurrentUser(user);
+    try {
+      const user = await getOrCreateCurrentUser();
+      setCurrentUser(user);
+    } catch (error) {
+  console.warn(
+    'ユーザー情報の取得に失敗しました:',
+    error instanceof Error ? error.message : error,
+  );
+  setCurrentUser(null);
+}
   };
 
   loadUser();
@@ -74,7 +87,7 @@ useEffect(() => {
   const router = useRouter();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-  const [profile, setProfile] = useState(loadStoredProfile);
+  const [profile, setProfile] = useState<StoredProfile>(DEFAULT_PROFILE);
 
   useEffect(() => {
     const syncProfile = () => {
@@ -277,6 +290,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 18,
     fontWeight: 600,
     letterSpacing: 2,
+    color: '#333',
   },
   grid: {
     width: '100%',

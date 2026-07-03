@@ -28,6 +28,11 @@ export default function LoginPage() {
             setErrorMessage('メールアドレスまたはパスワードが正しくありません。');
             return;
         }
+        window.localStorage.setItem(
+            'lunch-share-login-info',
+            JSON.stringify({ email: email.trim(), password }),
+        );
+
 
         router.push('/question');
     };

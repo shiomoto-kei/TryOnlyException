@@ -27,9 +27,6 @@ export default function RegisterInfoPage() {
   const [editing, setEditing] = useState(false);
   const [tempName, setTempName] = useState(name);
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [editingEmail, setEditingEmail] = useState(false);
-  const [editingPassword, setEditingPassword] = useState(false);
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,7 +55,7 @@ export default function RegisterInfoPage() {
       };
 
       setEmail(authEmail || parsedLoginInfo.email || '');
-      setPassword(parsedLoginInfo.password || '');
+      
       return;
     } catch {
       window.localStorage.removeItem(LOGIN_INFO_STORAGE_KEY);
@@ -167,50 +164,18 @@ syncLoginInfo();
         <div style={styles.fieldList}>
           <div style={styles.fieldRow}>
             <span style={styles.fieldLabel}>メールアドレス</span>
-            {editingEmail ? (
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => setEditingEmail(false)}
-                autoFocus
-                style={styles.fieldEditInput}
-              />
-            ) : (
-              <>
-                <span style={styles.fieldValue}>{email}</span>
-                <button
-                  style={styles.arrowBtn}
-                  onClick={() => setEditingEmail(true)}
-                >
-                  ›
-                </button>
-              </>
-            )}
+            <span style={styles.fieldValue}>{email}</span>
           </div>
 
           <div style={styles.fieldRow}>
             <span style={styles.fieldLabel}>パスワード</span>
-            {editingPassword ? (
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onBlur={() => setEditingPassword(false)}
-                autoFocus
-                style={styles.fieldEditInput}
-              />
-            ) : (
-              <>
-                <span style={styles.fieldValue}>{password}</span>
-                <button
-                  style={styles.arrowBtn}
-                  onClick={() => setEditingPassword(true)}
-                >
-                  ›
-                </button>
-              </>
-            )}
+            <span style={styles.fieldValue}>*******</span>
+            <button
+              style={styles.arrowBtn}
+              onClick={() => router.push('/reset-password')}
+            >
+              ＞
+            </button>
           </div>
         </div>
       </main>

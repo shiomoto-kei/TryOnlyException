@@ -292,6 +292,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 18,
     fontWeight: 600,
     letterSpacing: 2,
+    color: '#333',
   },
   nameInput: {
     fontSize: 18,
@@ -301,6 +302,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'center',
     background: 'transparent',
     flex: 1,
+    color: '#333',
   },
   editBtn: {
     background: 'transparent',

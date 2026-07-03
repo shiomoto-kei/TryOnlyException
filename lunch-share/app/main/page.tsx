@@ -38,16 +38,9 @@ export default function HomePage() {
   };
 
   const handleSubmit = async () => {
-    const result = await createLunchPost({
-      shop,
-      menu,
-      comment,
-    });
-
+    const result = await createLunchPost({ shop, menu, comment });
     setMessage(result.message);
-
     if (!result.ok) return;
-
     setShop('');
     setMenu('');
     setComment('');
@@ -296,10 +289,10 @@ const styles: { [key: string]: CSSProperties } = {
   },
   flagWrapper: {
     position: 'relative',
-    width: 'calc(100% + 36px)',
-    margin: '20px -18px 14px',
+    margin: '16px 0 14px',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   flagImage: {
     width: '100%',
@@ -308,9 +301,8 @@ const styles: { [key: string]: CSSProperties } = {
   },
   flagText: {
     position: 'absolute',
-    left: 28,
-    color: '#F5B042',
-    fontSize: 15,
+    color: '#D27000',
+    fontSize: 20,
     fontWeight: 700,
   },
   statusList: {

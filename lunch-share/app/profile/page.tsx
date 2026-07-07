@@ -253,8 +253,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: '#fff',
     display: 'flex',
     flexDirection: 'column',
-    fontFamily:
-      '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    fontFamily: '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    paddingTop: 72,
+    paddingBottom: 72,
   },
   main: {
     flex: 1,

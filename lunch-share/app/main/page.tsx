@@ -208,6 +208,8 @@ const styles: { [key: string]: CSSProperties } = {
     display: 'flex',
     flexDirection: 'column',
     fontFamily: '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    paddingTop: 72,
+    paddingBottom: 72,
   },
   groupRow: {
     display: 'flex',

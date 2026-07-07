@@ -89,8 +89,7 @@ const styles: { [key: string]: React.CSSProperties } = {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        fontFamily:
-            '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+        fontFamily:'-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
     },
     main: {
         flex: 1,

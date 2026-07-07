@@ -215,66 +215,66 @@ export default function ShopListPage() {
           </div>
         )}
         {selectedShop && (
-        <div
-          style={styles.modalBackdrop}
-          role="presentation"
-          onClick={() => setSelectedShop(null)}
-        >
-          <section
-            aria-modal="true"
-            role="dialog"
-            aria-label="お店の詳細"
-            style={styles.modalCard}
-            onClick={(e) => e.stopPropagation()}
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setSelectedShop(null)}
           >
-            <h2 style={styles.detailTitle}>{selectedShop.name}</h2>
-
-            <div style={styles.detailRow}>
-              <span style={styles.label}>カテゴリ：</span>
-              <span style={styles.detailText}>
-                {selectedShop.category || '未登録'}
-              </span>
-            </div>
-
-            <div style={styles.detailRow}>
-              <span style={styles.label}>郵便番号：</span>
-              <span style={styles.detailText}>
-                {selectedShop.postalCode || '未登録'}
-              </span>
-            </div>
-
-            <div style={styles.detailRow}>
-              <span style={styles.label}>住所：</span>
-              <span style={styles.detailText}>
-                {selectedShop.address || '未登録'}
-              </span>
-            </div>
-
-            <div style={styles.detailCommentBlock}>
-              <span style={styles.label}>口コミ：</span>
-              <p style={styles.detailComment}>
-                {selectedShop.comment || '口コミはまだありません'}
-              </p>
-            </div>
-
-            {selectedShop.imageUrl && (
-              <img
-                src={selectedShop.imageUrl}
-                alt={`${selectedShop.name}の画像`}
-                style={styles.detailImage}
-              />
-            )}
-
-            <button
-              type="button"
-              onClick={() => setSelectedShop(null)}
-              style={styles.submitButton}
+            <section
+              aria-modal="true"
+              role="dialog"
+              aria-label="お店の詳細"
+              style={styles.modalCard}
+              onClick={(e) => e.stopPropagation()}
             >
-              閉じる
-            </button>
-          </section>
-        </div>
-      )}
+              <h2 style={styles.detailTitle}>{selectedShop.name}</h2>
+
+              <div style={styles.detailRow}>
+                <span style={styles.label}>カテゴリ：</span>
+                <span style={styles.detailText}>
+                  {selectedShop.category || '未登録'}
+                </span>
+              </div>
+
+              <div style={styles.detailRow}>
+                <span style={styles.label}>郵便番号：</span>
+                <span style={styles.detailText}>
+                  {selectedShop.postalCode || '未登録'}
+                </span>
+              </div>
+
+              <div style={styles.detailRow}>
+                <span style={styles.label}>住所：</span>
+                <span style={styles.detailText}>
+                  {selectedShop.address || '未登録'}
+                </span>
+              </div>
+
+              <div style={styles.detailCommentBlock}>
+                <span style={styles.label}>口コミ：</span>
+                <p style={styles.detailComment}>
+                  {selectedShop.comment || '口コミはまだありません'}
+                </p>
+              </div>
+
+              {selectedShop.imageUrl && (
+                <img
+                  src={selectedShop.imageUrl}
+                  alt={`${selectedShop.name}の画像`}
+                  style={styles.detailImage}
+                />
+              )}
+
+              <button
+                type="button"
+                onClick={() => setSelectedShop(null)}
+                style={styles.submitButton}
+              >
+                閉じる
+              </button>
+            </section>
+          </div>
+        )}
       </main>
 
       <BottomNav />
@@ -288,8 +288,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: '#fff',
     display: 'flex',
     flexDirection: 'column',
-    fontFamily:
-      '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    fontFamily: '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    paddingTop: 72,
+    paddingBottom: 72,
   },
   main: {
     flex: 1,

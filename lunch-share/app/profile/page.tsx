@@ -3,7 +3,6 @@
 import { supabase } from '../lib/supabaseClient';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getOrCreateCurrentUser } from '../lib/currentUser';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 import {
@@ -38,56 +37,42 @@ const FriendListIcon = () => (
   </svg>
 );
 
-type CurrentUser = {
-  id: string;
-  name: string;
-  email: string | null;
-  created_at?: string | null;
-};
 const DEFAULT_PROFILE: StoredProfile = {
   name: 'ゲストユーザー',
   avatarSrc: null,
 };
 
 export default function ProfilePage() {
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
-  const [qrImageUrl, setQrImageUrl] = useState('');
-
-useEffect(() => {
-  const loadUser = async () => {
-    try {
-      const user = await getOrCreateCurrentUser();
-      setCurrentUser(user);
-    } catch (error) {
-  console.warn(
-    'ユーザー情報の取得に失敗しました:',
-    error instanceof Error ? error.message : error,
-  );
-  setCurrentUser(null);
-}
-  };
-
-  loadUser();
-}, []);
-
-useEffect(() => {
-  if (!currentUser || typeof window === 'undefined') return;
-
-  const friendAddUrl = `${window.location.origin}/friend-add?userId=${encodeURIComponent(
-    currentUser.id,
-  )}`;
-
-  setQrImageUrl(
-    `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-      friendAddUrl,
-    )}`,
-  );
-}, [currentUser]);
-  
   const router = useRouter();
+  const [authUserId, setAuthUserId] = useState('');
+  const [qrImageUrl, setQrImageUrl] = useState('');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [profile, setProfile] = useState<StoredProfile>(DEFAULT_PROFILE);
+  
+useEffect(() => {
+  const loadQrUserId = async () => {
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      console.error('QR用ユーザーIDの取得に失敗しました:', error);
+      setAuthUserId('');
+      setQrImageUrl('');
+      return;
+    }
+
+    const userId = data.user.id;
+    setAuthUserId(userId);
+
+    setQrImageUrl(
+      `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+        userId,
+      )}`,
+    );
+  };
+
+  loadQrUserId();
+}, []);
 
   useEffect(() => {
     const syncProfile = () => {
@@ -223,6 +208,14 @@ useEffect(() => {
             ) : (
               <div style={styles.qrPlaceholder} />
             )}
+
+            <div style={styles.userIdBox}>
+              <span style={styles.userIdLabel}>ユーザーID</span>
+              <span style={styles.userIdText}>
+                {authUserId || 'ユーザーIDを取得できませんでした'}
+              </span>
+            </div>
+
               <div style={styles.modalButtons}>
                 <button
                   onClick={() => setIsQRModalOpen(false)}
@@ -392,5 +385,24 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: 180,
     height: 180,
     borderRadius: 8,
-  },
+  },userIdBox: {
+  width: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  gap: 4,
+},
+userIdLabel: {
+  color: '#777',
+  fontSize: 12,
+  fontWeight: 600,
+},
+userIdText: {
+  maxWidth: '100%',
+  color: '#333',
+  fontSize: 12,
+  fontWeight: 700,
+  overflowWrap: 'anywhere',
+  textAlign: 'center',
+},
 };

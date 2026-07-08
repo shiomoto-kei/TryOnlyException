@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
+import { getAuthErrorMessage } from '../lib/authErrorMessage';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -17,22 +18,22 @@ export default function LoginPage() {
         setErrorMessage('');
         setIsSubmitting(true);
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-        });
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
 
-        setIsSubmitting(false);
-
-        if (error) {
-            setErrorMessage('メールアドレスまたはパスワードが正しくありません。');
+            if (error) {
+                setErrorMessage(getAuthErrorMessage(error, 'login'));
+                return;
+            }
+        } catch (error) {
+            setErrorMessage(getAuthErrorMessage(error, 'login'));
             return;
+        } finally {
+            setIsSubmitting(false);
         }
-        window.localStorage.setItem(
-            'lunch-share-login-info',
-            JSON.stringify({ email: email.trim(), password }),
-        );
-
 
         router.push('/question');
     };

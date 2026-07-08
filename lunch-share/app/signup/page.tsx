@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
+import { getAuthErrorMessage } from '../lib/authErrorMessage';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -29,15 +30,21 @@ export default function SignupPage() {
     }
 
     setIsSubmitting(true);
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
-    setIsSubmitting(false);
+    try {
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      });
 
-    if (error) {
-      setErrorMessage(error.message);
+      if (error) {
+        setErrorMessage(getAuthErrorMessage(error, 'signup'));
+        return;
+      }
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error, 'signup'));
       return;
+    } finally {
+      setIsSubmitting(false);
     }
 
     setSuccessMessage('登録確認メールを送信しました。メール内のリンクを確認してください。');

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { getAuthErrorMessage } from '../lib/authErrorMessage';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -22,14 +23,20 @@ export default function ForgotPasswordPage() {
     }
 
     setIsSubmitting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setIsSubmitting(false);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
 
-    if (error) {
-      setErrorMessage(error.message);
+      if (error) {
+        setErrorMessage(getAuthErrorMessage(error, 'passwordResetEmail'));
+        return;
+      }
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error, 'passwordResetEmail'));
       return;
+    } finally {
+      setIsSubmitting(false);
     }
 
     setSuccessMessage('パスワード再設定メールを送信しました。メール内のリンクを確認してください。');

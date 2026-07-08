@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
+import { getAuthErrorMessage } from '../lib/authErrorMessage';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -52,12 +53,18 @@ export default function ResetPasswordPage() {
     }
 
     setIsSubmitting(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setIsSubmitting(false);
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
-      setErrorMessage(error.message);
+      if (error) {
+        setErrorMessage(getAuthErrorMessage(error, 'passwordUpdate'));
+        return;
+      }
+    } catch (error) {
+      setErrorMessage(getAuthErrorMessage(error, 'passwordUpdate'));
       return;
+    } finally {
+      setIsSubmitting(false);
     }
 
     setSuccessMessage('パスワードを更新しました。ログイン画面に戻ります。');

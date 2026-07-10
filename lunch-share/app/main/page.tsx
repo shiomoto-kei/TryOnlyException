@@ -16,6 +16,16 @@ const sampleStatuses: { id: string; name: string; mealStatus: 'ある' | 'ない
   { id: '5', name: 'ささき しょうま', mealStatus: 'ある' },
 ];
 
+const BubbleSvg = () => (
+  <svg width="172" height="95" viewBox="0 0 172 95" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M86.426 93.3945C86.2298 93.7051 85.7766 93.7051 85.5803 93.3945L75.4788 77.4072C75.2685 77.0744 75.507 76.6399 75.9006 76.6396L96.1057 76.6396C96.4995 76.6397 96.7389 77.0743 96.5286 77.4072L86.426 93.3945Z" fill="white" stroke="black"/>
+    <rect x="0.5" y="0.5" width="171.008" height="78.6324" rx="4.5" fill="white" stroke="black"/>
+    <rect width="2.46583" height="2.78384" transform="matrix(0.924318 -0.381623 0.530522 0.847671 76.7155 78.3989)" fill="white"/>
+    <rect width="2.41037" height="2.60783" transform="matrix(0.921484 0.388417 -0.53843 0.84267 93.0873 77.501)" fill="white"/>
+    <rect x="79.0985" y="78" width="13.8102" height="2" fill="white"/>
+  </svg>
+);
+
 export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
@@ -24,13 +34,13 @@ export default function HomePage() {
   const [comment, setComment] = useState('');
   const [pageData, setPageData] = useState<MainPageData | null>(null);
   const [message, setMessage] = useState('');
+  const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
       const data = await getMainPageData();
       setPageData(data);
     }
-
     loadData();
   }, []);
 
@@ -46,6 +56,10 @@ export default function HomePage() {
     setMenu('');
     setComment('');
     setIsModalOpen(false);
+  };
+
+  const handleAvatarClick = (id: string) => {
+    setActiveBubbleId((prev) => (prev === id ? null : id));
   };
 
   return (
@@ -70,24 +84,56 @@ export default function HomePage() {
 
       <PushNotificationManager />
 
-      <main style={styles.main}>
+      <main
+        style={styles.main}
+        onClick={() => setActiveBubbleId(null)}
+      >
         <div style={styles.circleArea}>
           {pageData?.members.map((member) => {
             const radius = 110;
             const rad = (member.angle * Math.PI) / 180;
             const x = Math.cos(rad) * radius;
             const y = Math.sin(rad) * radius;
+            const isActive = activeBubbleId === member.id;
 
             return (
               <div
                 key={member.id}
-                title={member.name}
                 style={{
-                  ...styles.memberAvatar,
-                  background: member.avatarColor,
+                  ...styles.memberWrapper,
                   transform: `translate(${x}px, ${y}px)`,
                 }}
-              />
+              >
+                {isActive && (
+                  <div style={styles.bubbleWrapper}>
+                    <BubbleSvg />
+                    <p style={styles.bubbleText}>
+                      <span style={styles.bubbleShop}>
+                        {member.shop ?? '未投稿'}
+                      </span>
+                      {member.shop && member.menu && (
+                        <>
+                          {'の'}
+                          <span style={styles.bubbleMenu}>{member.menu}</span>
+                          {'が食べたい！'}
+                        </>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  title={member.name}
+                  style={{
+                    ...styles.memberAvatar,
+                    background: member.avatarColor,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAvatarClick(member.id);
+                  }}
+                />
+              </div>
             );
           })}
 
@@ -240,12 +286,55 @@ const styles: { [key: string]: CSSProperties } = {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  memberAvatar: {
+  memberWrapper: {
     position: 'absolute',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
+  memberAvatar: {
     width: 50,
     height: 50,
     borderRadius: '50%',
     background: '#d4d4d4',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 0,
+  },
+  bubbleWrapper: {
+    position: 'absolute',
+    bottom: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    marginBottom: 4,
+    width: 172,
+    zIndex: 10,
+  },
+  bubbleText: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: 79,
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: '0 12px',
+    margin: 0,
+    fontSize: 11,
+    fontWeight: 700,
+    color: '#333',
+    lineHeight: 1.5,
+    textAlign: 'center',
+    boxSizing: 'border-box',
+    pointerEvents: 'none',
+  },
+  bubbleShop: {
+    color: '#D27000',
+  },
+  bubbleMenu: {
+    color: '#D6437A',
   },
   addButton: {
     width: 70,

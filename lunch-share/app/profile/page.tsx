@@ -63,12 +63,6 @@ useEffect(() => {
 
     const userId = data.user.id;
     setAuthUserId(userId);
-
-    setQrImageUrl(
-      `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-        userId,
-      )}`,
-    );
   };
 
   loadQrUserId();
@@ -92,6 +86,26 @@ useEffect(() => {
       window.removeEventListener('storage', syncProfile);
     };
   }, []);
+
+  useEffect(() => {
+  if (!authUserId) {
+    setQrImageUrl('');
+    return;
+  }
+
+  const qrPayload = JSON.stringify({
+    type: 'lunch-share-friend',
+    userId: authUserId,
+    name: profile.name,
+    avatarUrl: profile.avatarSrc,
+  });
+
+  setQrImageUrl(
+    `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
+      qrPayload,
+    )}`,
+  );
+}, [authUserId, profile.avatarSrc, profile.name]);
 
  const handleLogoutConfirm = async () => {
   await supabase.auth.signOut();
@@ -224,7 +238,7 @@ useEffect(() => {
                   閉じる
                 </button>
                 <button
-                  onClick={() => router.push('/friendlist')}
+                  onClick={() => router.push('/friend-add')}
                   style={styles.okButton}
                 >
                   読み取る

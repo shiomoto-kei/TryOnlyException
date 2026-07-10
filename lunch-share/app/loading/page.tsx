@@ -4,10 +4,21 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+const LOADING_SEEN_KEY = 'lunch-share-loading-seen';
+
 export default function LoadingPage() {
   const router = useRouter();
 
   useEffect(() => {
+    const hasSeenLoading = sessionStorage.getItem(LOADING_SEEN_KEY) === 'true';
+
+    if (hasSeenLoading) {
+      router.replace('/login');
+      return;
+    }
+
+    sessionStorage.setItem(LOADING_SEEN_KEY, 'true');
+
     const timer = setTimeout(() => {
       router.replace('/login');
     }, 2000);

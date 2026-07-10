@@ -1,56 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../lib/supabaseClient';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 
 type Friend = {
-  id: string;
-  friend_user_id: string;
-  friend_name: string;
-  friend_avatar_url: string | null;
+  id: number;
+  name: string;
 };
+
+const initialFriends: Friend[] = [
+  { id: 1, name: 'ささき　しょうま' },
+  { id: 2, name: 'ささき　しょうま' },
+  { id: 3, name: 'ささき　しょうま' },
+  { id: 4, name: 'ささき　しょうま' },
+  { id: 5, name: 'ささき　しょうま' },
+];
 
 export default function FriendListPage() {
   const router = useRouter();
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [message, setMessage] = useState('読み込み中...');
-
-  useEffect(() => {
-    const loadFriends = async () => {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const currentUser = authData.user;
-
-      if (authError || !currentUser) {
-        setMessage('ログイン中のユーザー情報を取得できませんでした。');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('friends')
-        .select('id, friend_user_id, friend_name, friend_avatar_url')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        setMessage(`フレンド一覧の取得に失敗しました: ${error.message}`);
-        return;
-      }
-
-      setFriends((data as Friend[]) ?? []);
-      setMessage(data?.length ? '' : 'フレンドはまだいません。');
-    };
-
-    loadFriends();
-  }, []);
+  const [friends] = useState<Friend[]>(initialFriends);
 
   return (
     <div style={styles.page}>
       <Header />
 
       <main style={styles.main}>
+        {/* 戻るボタン */}
         <div style={styles.backRow}>
           <button
             onClick={() => router.push('/profile')}
@@ -64,26 +41,11 @@ export default function FriendListPage() {
           <span style={styles.titleText}>フレンド一覧</span>
         </div>
 
-        {message && <p style={styles.message}>{message}</p>}
-
         <div style={styles.friendList}>
           {friends.map((friend) => (
             <div key={friend.id} style={styles.friendRow}>
-              {friend.friend_avatar_url ? (
-                <div
-                  style={{
-                    ...styles.friendAvatar,
-                    backgroundImage: `url(${friend.friend_avatar_url})`,
-                  }}
-                />
-              ) : (
-                <div style={styles.friendAvatar} />
-              )}
-
-              <div style={styles.friendInfo}>
-                <span style={styles.friendId}>ID: {friend.friend_user_id}</span>
-                <span style={styles.friendName}>名前: {friend.friend_name}</span>
-              </div>
+              <div style={styles.friendAvatar} />
+              <span style={styles.friendName}>{friend.name}</span>
             </div>
           ))}
         </div>
@@ -93,6 +55,7 @@ export default function FriendListPage() {
     </div>
   );
 }
+
 const styles: { [key: string]: React.CSSProperties } = {
   page: {
     minHeight: '100vh',
@@ -164,10 +127,4 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#333',
     fontWeight: 500,
   },
-  friendInfo: {
-  minWidth: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 2,
-},
 };

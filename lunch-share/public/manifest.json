@@ -2,7 +2,7 @@
   "name": "ランチシェア",
   "short_name": "ランチシェア",
   "description": "今日のランチを仲間とシェアするアプリ",
-  "start_url": "/main",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",

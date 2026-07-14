@@ -224,7 +224,7 @@ useEffect(() => {
                   閉じる
                 </button>
                 <button
-                  onClick={() => router.push('/friendlist')}
+                  onClick={() => router.push('/friend-scan')}
                   style={styles.okButton}
                 >
                   読み取る

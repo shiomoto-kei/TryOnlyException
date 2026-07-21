@@ -42,118 +42,313 @@ const DEFAULT_PROFILE: StoredProfile = {
   avatarSrc: null,
 };
 
+type FoundUser = {
+  id: string;
+  name: string;
+} | null;
+
 export default function ProfilePage() {
   const router = useRouter();
   const [authUserId, setAuthUserId] = useState('');
   const [qrImageUrl, setQrImageUrl] = useState('');
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [profile, setProfile] = useState<StoredProfile>(DEFAULT_PROFILE);
-  
-useEffect(() => {
-  const loadQrUserId = async () => {
-    const { data, error } = await supabase.auth.getUser();
+  const [copied, setCopied] = useState(false);
 
-    if (error || !data.user) {
-      console.error('QR用ユーザーIDの取得に失敗しました:', error);
-      setAuthUserId('');
-      setQrImageUrl('');
-      return;
-    }
+  // モーダル管理
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
+  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
 
-    const userId = data.user.id;
-    setAuthUserId(userId);
-
-    setQrImageUrl(
-      `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-        userId,
-      )}`,
-    );
-  };
-
-  loadQrUserId();
-}, []);
+  // ID検索
+  const [searchId, setSearchId] = useState('');
+  const [foundUser, setFoundUser] = useState<FoundUser>(null);
+  const [searchMessage, setSearchMessage] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [sendMessage, setSendMessage] = useState('');
 
   useEffect(() => {
-    const syncProfile = () => {
-      setProfile(loadStoredProfile());
+    const loadQrUserId = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (error || !data.user) {
+        setAuthUserId('');
+        setQrImageUrl('');
+        return;
+      }
+      const userId = data.user.id;
+      setAuthUserId(userId);
+      setQrImageUrl(
+        `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(userId)}`,
+      );
     };
-    const syncUserProfile = async () => {
-      setProfile(await loadUserProfile());
-    };
+    loadQrUserId();
+  }, []);
+
+  useEffect(() => {
+    const syncProfile = () => setProfile(loadStoredProfile());
+    const syncUserProfile = async () => setProfile(await loadUserProfile());
 
     syncProfile();
     syncUserProfile();
     window.addEventListener(PROFILE_UPDATED_EVENT, syncProfile);
     window.addEventListener('storage', syncProfile);
-
     return () => {
       window.removeEventListener(PROFILE_UPDATED_EVENT, syncProfile);
       window.removeEventListener('storage', syncProfile);
     };
   }, []);
 
- const handleLogoutConfirm = async () => {
-  await supabase.auth.signOut();
-  setIsLogoutModalOpen(false);
-  router.push('/login');
-};
+  const handleLogoutConfirm = async () => {
+    await supabase.auth.signOut();
+    setIsLogoutModalOpen(false);
+    router.push('/login');
+  };
+
+  const handleCopyId = () => {
+    navigator.clipboard.writeText(authUserId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSearch = async () => {
+    setFoundUser(null);
+    setSearchMessage('');
+    setSendMessage('');
+    if (!searchId.trim()) return;
+
+    setIsSearching(true);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name')
+      .eq('id', searchId.trim())
+      .single();
+
+    setIsSearching(false);
+
+    if (error || !data) {
+      setSearchMessage('ユーザーが見つかりませんでした。');
+      return;
+    }
+    setFoundUser(data);
+  };
+
+  const handleSendRequest = async () => {
+    if (!foundUser) return;
+    setIsSending(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setSendMessage('ログインが必要です。');
+      setIsSending(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('friend_requests')
+      .insert({ from_user_id: user.id, to_user_id: foundUser.id });
+
+    setIsSending(false);
+    if (error) {
+      setSendMessage(`申請に失敗しました: ${error.message}`);
+    } else {
+      setSendMessage('フレンド申請を送りました！');
+    }
+  };
+
+  const openSearchModal = () => {
+    setIsAddFriendModalOpen(false);
+    setSearchId('');
+    setFoundUser(null);
+    setSearchMessage('');
+    setSendMessage('');
+    setIsSearchModalOpen(true);
+  };
+
+  const openQRModal = () => {
+    setIsAddFriendModalOpen(false);
+    setIsQRModalOpen(true);
+  };
 
   return (
     <div style={styles.page}>
       <Header />
 
       <main style={styles.main}>
-        {/* アバター（表示のみ） */}
         <div style={styles.avatarWrap}>
           <div
             style={{
               ...styles.avatar,
-              backgroundImage: profile.avatarSrc
-                ? `url(${profile.avatarSrc})`
-                : undefined,
+              backgroundImage: profile.avatarSrc ? `url(${profile.avatarSrc})` : undefined,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
           />
         </div>
 
-        {/* 名前（表示のみ） */}
         <div style={styles.nameRow}>
           <span style={styles.nameText}>{profile.name}</span>
         </div>
 
-        {/* メニューグリッド */}
         <div style={styles.grid}>
           <button onClick={() => setIsLogoutModalOpen(true)} style={styles.menuButton}>
             <LogoutIcon />
             <span style={styles.menuLabel}>ログアウト</span>
           </button>
 
-          <button
-            onClick={() => router.push('/register-info')}
-            style={styles.menuButton}
-          >
+          <button onClick={() => router.push('/register-info')} style={styles.menuButton}>
             <RegisterInfoIcon />
             <span style={styles.menuLabel}>登録情報</span>
           </button>
 
-          <button
-            onClick={() => setIsQRModalOpen(true)}
-            style={styles.menuButton}
-          >
+          <button onClick={() => setIsAddFriendModalOpen(true)} style={styles.menuButton}>
             <AddFriendIcon />
             <span style={styles.menuLabel}>フレンド追加</span>
           </button>
 
-          <button
-            onClick={() => router.push('/friendlist')}
-            style={styles.menuButton}
-          >
+          <button onClick={() => router.push('/friendlist')} style={styles.menuButton}>
             <FriendListIcon />
             <span style={styles.menuLabel}>フレンド一覧</span>
           </button>
         </div>
+
+        {/* ① フレンド追加方法選択モーダル */}
+        {isAddFriendModalOpen && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setIsAddFriendModalOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              role="dialog"
+              style={styles.modalCard}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={styles.modalTitle}>フレンド追加</p>
+              <p style={styles.modalBody}>追加方法を選んでください</p>
+              <div style={styles.columnButtons}>
+                <button onClick={openQRModal} style={styles.wideButton}>
+                  QRコード
+                </button>
+                <button onClick={openSearchModal} style={styles.wideButton}>
+                  ID検索
+                </button>
+              </div>
+              <button onClick={() => setIsAddFriendModalOpen(false)} style={styles.textButton}>
+                キャンセル
+              </button>
+            </section>
+          </div>
+        )}
+
+        {/* ② QRコード表示モーダル */}
+        {isQRModalOpen && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setIsQRModalOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              role="dialog"
+              style={styles.modalCard}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={styles.modalTitle}>マイQRコード</p>
+              {qrImageUrl ? (
+                <img src={qrImageUrl} alt="マイQRコード" style={styles.qrImage} />
+              ) : (
+                <div style={styles.qrPlaceholder} />
+              )}
+              <div style={styles.userIdBox}>
+                <span style={styles.userIdLabel}>ユーザーID</span>
+                <span style={styles.userIdText}>
+                  {authUserId || 'ユーザーIDを取得できませんでした'}
+                </span>
+              </div>
+              <div style={styles.modalButtons}>
+                <button onClick={() => setIsQRModalOpen(false)} style={styles.cancelButton}>
+                  閉じる
+                </button>
+                <button onClick={() => router.push('/friend-scan')} style={styles.okButton}>
+                  読み取る
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* ③ ID検索モーダル */}
+        {isSearchModalOpen && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={() => setIsSearchModalOpen(false)}
+          >
+            <section
+              aria-modal="true"
+              role="dialog"
+              style={styles.modalCard}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <p style={styles.modalTitle}>ID検索</p>
+
+              {/* 自分のID表示 */}
+              <div style={styles.myIdBox}>
+                <span style={styles.userIdLabel}>自分のID</span>
+                <div style={styles.myIdRow}>
+                  <span style={styles.myIdText}>{authUserId || '取得中...'}</span>
+                  <button onClick={handleCopyId} style={styles.copyButton}>
+                    {copied ? 'コピー済' : 'コピー'}
+                  </button>
+                </div>
+              </div>
+
+              <div style={styles.searchRow}>
+                <input
+                  type="text"
+                  placeholder="ユーザーIDを入力"
+                  value={searchId}
+                  onChange={(e) => setSearchId(e.target.value)}
+                  style={styles.searchInput}
+                />
+                <button
+                  onClick={handleSearch}
+                  style={styles.searchButton}
+                  disabled={isSearching}
+                >
+                  {isSearching ? '...' : '検索'}
+                </button>
+              </div>
+
+              {searchMessage && (
+                <p style={styles.searchMessage}>{searchMessage}</p>
+              )}
+
+              {foundUser && (
+                <div style={styles.foundUserBox}>
+                  <span style={styles.foundUserName}>{foundUser.name}</span>
+                  <button
+                    onClick={handleSendRequest}
+                    style={styles.okButton}
+                    disabled={isSending}
+                  >
+                    {isSending ? '送信中...' : '申請する'}
+                  </button>
+                </div>
+              )}
+
+              {sendMessage && (
+                <p style={styles.searchMessage}>{sendMessage}</p>
+              )}
+
+              <button onClick={() => setIsSearchModalOpen(false)} style={styles.textButton}>
+                閉じる
+              </button>
+            </section>
+          </div>
+        )}
 
         {/* ログアウト確認モーダル */}
         {isLogoutModalOpen && (
@@ -171,63 +366,11 @@ useEffect(() => {
               <p style={styles.modalTitle}>ログアウト</p>
               <p style={styles.modalBody}>ログアウトしてよろしいですか？</p>
               <div style={styles.modalButtons}>
-                <button
-                  onClick={() => setIsLogoutModalOpen(false)}
-                  style={styles.cancelButton}
-                >
+                <button onClick={() => setIsLogoutModalOpen(false)} style={styles.cancelButton}>
                   キャンセル
                 </button>
-                <button
-                  onClick={handleLogoutConfirm}
-                  style={styles.okButton}
-                >
+                <button onClick={handleLogoutConfirm} style={styles.okButton}>
                   OK
-                </button>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* QRコードモーダル */}
-        {isQRModalOpen && (
-          <div
-            style={styles.modalBackdrop}
-            role="presentation"
-            onClick={() => setIsQRModalOpen(false)}
-          >
-            <section
-              aria-modal="true"
-              role="dialog"
-              style={styles.modalCard}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <p style={styles.modalTitle}>マイQRコード</p>
-              {/* <div style={styles.qrPlaceholder} /> */}
-              {qrImageUrl ? (
-              <img src={qrImageUrl} alt="マイQRコード" style={styles.qrImage} />
-            ) : (
-              <div style={styles.qrPlaceholder} />
-            )}
-
-            <div style={styles.userIdBox}>
-              <span style={styles.userIdLabel}>ユーザーID</span>
-              <span style={styles.userIdText}>
-                {authUserId || 'ユーザーIDを取得できませんでした'}
-              </span>
-            </div>
-
-              <div style={styles.modalButtons}>
-                <button
-                  onClick={() => setIsQRModalOpen(false)}
-                  style={styles.cancelButton}
-                >
-                  閉じる
-                </button>
-                <button
-                  onClick={() => router.push('/friend-scan')}
-                  style={styles.okButton}
-                >
-                  読み取る
                 </button>
               </div>
             </section>
@@ -312,7 +455,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#5a4a2a',
     fontWeight: 600,
   },
-  // モーダル共通
   modalBackdrop: {
     position: 'fixed',
     inset: 0,
@@ -352,6 +494,32 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: 12,
     marginTop: 4,
   },
+  columnButtons: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    width: '100%',
+  },
+  wideButton: {
+    width: '100%',
+    height: 40,
+    border: 'none',
+    borderRadius: 20,
+    background: '#F5B042',
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  textButton: {
+    background: 'none',
+    border: 'none',
+    color: '#888',
+    fontSize: 13,
+    cursor: 'pointer',
+    textDecoration: 'underline',
+    padding: 0,
+  },
   cancelButton: {
     minWidth: 90,
     height: 36,
@@ -374,7 +542,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600,
     cursor: 'pointer',
   },
-  // QRコード
   qrPlaceholder: {
     width: 160,
     height: 160,
@@ -385,24 +552,109 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: 180,
     height: 180,
     borderRadius: 8,
-  },userIdBox: {
-  width: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: 4,
-},
-userIdLabel: {
-  color: '#777',
-  fontSize: 12,
-  fontWeight: 600,
-},
-userIdText: {
-  maxWidth: '100%',
-  color: '#333',
-  fontSize: 12,
-  fontWeight: 700,
-  overflowWrap: 'anywhere',
-  textAlign: 'center',
-},
+  },
+  userIdBox: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+  },
+  userIdLabel: {
+    color: '#777',
+    fontSize: 12,
+    fontWeight: 600,
+  },
+  userIdText: {
+    maxWidth: '100%',
+    color: '#333',
+    fontSize: 12,
+    fontWeight: 700,
+    overflowWrap: 'anywhere',
+    textAlign: 'center',
+  },
+  // 自分のID表示（ID検索モーダル内）
+  myIdBox: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    padding: '10px 12px',
+    background: '#f9f9f9',
+    borderRadius: 8,
+    boxSizing: 'border-box',
+  },
+  myIdRow: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  myIdText: {
+    fontSize: 11,
+    color: '#333',
+    fontWeight: 700,
+    overflowWrap: 'anywhere',
+    flex: 1,
+  },
+  copyButton: {
+    flexShrink: 0,
+    height: 26,
+    padding: '0 10px',
+    border: 'none',
+    borderRadius: 6,
+    background: '#F5B042',
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  // ID検索
+  searchRow: {
+    display: 'flex',
+    gap: 6,
+    width: '100%',
+  },
+  searchInput: {
+    flex: 1,
+    height: 34,
+    padding: '0 8px',
+    border: '1px solid #ccc',
+    borderRadius: 6,
+    fontSize: 12,
+    boxSizing: 'border-box',
+    outlineColor: '#F5B042',
+  },
+  searchButton: {
+    height: 34,
+    padding: '0 12px',
+    border: 'none',
+    borderRadius: 6,
+    background: '#F5B042',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  searchMessage: {
+    margin: 0,
+    fontSize: 12,
+    color: '#D32F2F',
+    textAlign: 'center',
+  },
+  foundUserBox: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '10px 12px',
+    border: '1px solid #eee',
+    borderRadius: 8,
+    boxSizing: 'border-box',
+  },
+  foundUserName: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: '#333',
+  },
 };

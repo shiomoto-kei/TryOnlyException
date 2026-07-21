@@ -1,33 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabaseClient';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 
 type Friend = {
-  id: number;
-  name: string;
+  id: string;
+  friend_user_id: string;
+  friend_name: string;
+  friend_avatar_url: string | null;
 };
-
-const initialFriends: Friend[] = [
-  { id: 1, name: 'ささき　しょうま' },
-  { id: 2, name: 'ささき　しょうま' },
-  { id: 3, name: 'ささき　しょうま' },
-  { id: 4, name: 'ささき　しょうま' },
-  { id: 5, name: 'ささき　しょうま' },
-];
 
 export default function FriendListPage() {
   const router = useRouter();
-  const [friends] = useState<Friend[]>(initialFriends);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [message, setMessage] = useState('読み込み中...');
+
+  useEffect(() => {
+    const loadFriends = async () => {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        setMessage('ログイン中のユーザー情報を取得できませんでした。');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('friends')
+        .select('id, friend_user_id, friend_name, friend_avatar_url')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        setMessage(`フレンド一覧の取得に失敗しました: ${error.message}`);
+        return;
+      }
+
+      setFriends((data as Friend[]) ?? []);
+      setMessage(data?.length ? '' : 'フレンドはまだいません。');
+    };
+
+    loadFriends();
+  }, []);
 
   return (
     <div style={styles.page}>
       <Header />
 
       <main style={styles.main}>
-        {/* 戻るボタン */}
         <div style={styles.backRow}>
           <button
             onClick={() => router.push('/profile')}
@@ -41,11 +66,26 @@ export default function FriendListPage() {
           <span style={styles.titleText}>フレンド一覧</span>
         </div>
 
+        {message && <p style={styles.message}>{message}</p>}
+
         <div style={styles.friendList}>
           {friends.map((friend) => (
             <div key={friend.id} style={styles.friendRow}>
-              <div style={styles.friendAvatar} />
-              <span style={styles.friendName}>{friend.name}</span>
+              {friend.friend_avatar_url ? (
+                <div
+                  style={{
+                    ...styles.friendAvatar,
+                    backgroundImage: `url(${friend.friend_avatar_url})`,
+                  }}
+                />
+              ) : (
+                <div style={styles.friendAvatar} />
+              )}
+
+              <div style={styles.friendInfo}>
+                <div style={styles.friendId}>ID: {friend.friend_user_id}</div>
+                <div style={styles.friendName}>名前: {friend.friend_name}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -103,9 +143,16 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 700,
     color: '#4a4a4a',
   },
+  message: {
+    color: '#555',
+    fontSize: 14,
+    fontWeight: 700,
+    margin: 0,
+    textAlign: 'center',
+  },
   friendList: {
     width: '100%',
-    maxWidth: 280,
+    maxWidth: 320,
     display: 'flex',
     flexDirection: 'column',
     gap: 20,
@@ -116,15 +163,29 @@ const styles: { [key: string]: React.CSSProperties } = {
     gap: 14,
   },
   friendAvatar: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: '50%',
     background: '#d4d4d4',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
     flexShrink: 0,
+  },
+  friendInfo: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 2,
+  },
+  friendId: {
+    maxWidth: 240,
+    color: '#777',
+    fontSize: 11,
+    overflowWrap: 'anywhere',
   },
   friendName: {
     fontSize: 15,
     color: '#333',
-    fontWeight: 500,
+    fontWeight: 700,
   },
 };

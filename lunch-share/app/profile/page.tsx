@@ -45,6 +45,7 @@ const DEFAULT_PROFILE: StoredProfile = {
 type FoundUser = {
   id: string;
   name: string;
+  avatar_url: string | null;
 } | null;
 
 export default function ProfilePage() {
@@ -120,7 +121,7 @@ export default function ProfilePage() {
     setIsSearching(true);
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name')
+      .select('id, name, avatar_url')
       .eq('id', searchId.trim())
       .single();
 
@@ -134,27 +135,52 @@ export default function ProfilePage() {
   };
 
   const handleSendRequest = async () => {
-    if (!foundUser) return;
-    setIsSending(true);
+  if (!foundUser) return;
+  setIsSending(true);
+  setSendMessage('');
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setSendMessage('ログインが必要です。');
-      setIsSending(false);
-      return;
-    }
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-    const { error } = await supabase
-      .from('friend_requests')
-      .insert({ from_user_id: user.id, to_user_id: foundUser.id });
-
+  if (authError || !user) {
+    setSendMessage('ログインが必要です。');
     setIsSending(false);
-    if (error) {
-      setSendMessage(`申請に失敗しました: ${error.message}`);
-    } else {
-      setSendMessage('フレンド申請を送りました！');
-    }
-  };
+    return;
+  }
+
+  if (user.id === foundUser.id) {
+    setSendMessage('自分自身はフレンドに追加できません。');
+    setIsSending(false);
+    return;
+  }
+
+  const { error } = await supabase.from('friends').upsert(
+    {
+      user_id: user.id,
+      friend_user_id: foundUser.id,
+      friend_name: foundUser.name,
+      friend_avatar_url: foundUser.avatar_url,
+    },
+    {
+      onConflict: 'user_id,friend_user_id',
+    },
+  );
+
+  setIsSending(false);
+
+  if (error) {
+    setSendMessage(`追加に失敗しました: ${error.message}`);
+    return;
+  }
+
+  setSendMessage('フレンドに追加しました！');
+
+  window.setTimeout(() => {
+    router.push('/friendlist');
+  }, 900);
+};
 
   const openSearchModal = () => {
     setIsAddFriendModalOpen(false);
@@ -334,7 +360,7 @@ export default function ProfilePage() {
                     style={styles.okButton}
                     disabled={isSending}
                   >
-                    {isSending ? '送信中...' : '申請する'}
+                    {isSending ? '追加中...' : '追加する'}
                   </button>
                 </div>
               )}

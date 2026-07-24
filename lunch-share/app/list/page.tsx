@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
+import { createShop, getShops, type Shop } from './action';
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
+} from "@vis.gl/react-google-maps";
 import { createShop, deleteShop, getShops, type Shop } from './action';
 
 const MagnifyingGlass = () => (
@@ -181,6 +187,31 @@ export default function ShopListPage() {
                   style={styles.underlineInput}
                 />
               </div>
+
+              <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+                <Map
+                  style={{
+                    width: "100%",
+                    height: "250px",
+                    marginTop: "12px",
+                    borderRadius: "8px",
+                  }}
+                  defaultCenter={{
+                    lat: 35.681236,
+                    lng: 139.767125,
+                  }}
+                  defaultZoom={16}
+                  gestureHandling="greedy"
+                  disableDefaultUI={false}
+                >
+                  <AdvancedMarker
+                    position={{
+                      lat: 34.702485,
+                      lng: 135.495951,
+                    }}
+                  />
+                </Map>
+              </APIProvider>
 
               <div style={styles.row}>
                 <span style={styles.label}>画像：</span>

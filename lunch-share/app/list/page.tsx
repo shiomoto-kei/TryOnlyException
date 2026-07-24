@@ -4,12 +4,8 @@ import { useEffect, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
-import { createShop, deleteShop, getShops, type Shop } from './action';
-import {
-  APIProvider,
-  Map,
-  AdvancedMarker,
-} from "@vis.gl/react-google-maps";
+import type { Shop } from './action';
+import { supabase } from '../lib/supabaseClient';
 
 const MagnifyingGlass = () => (
   <svg
@@ -46,51 +42,122 @@ export default function ShopListPage() {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    const loadShops = async () => {
-      const data = await getShops();
-      setShops(data);
-    };
+  const loadShops = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    loadShops();
-  }, []);
-
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('このお店をリストから削除しますか？')) return;
-    try {
-      await deleteShop(id);
-      setShops((prev) => prev.filter((s) => s.id !== id));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '削除に失敗しました');
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!shopName.trim()) {
-      setMessage('お店の名前を入力してください');
+    // 未ログインなら空の一覧
+    if (!user) {
+      setShops([]);
       return;
     }
 
-    try {
-      const createdShop = await createShop({
-        name: shopName,
-        category,
-        address,
-        comment,
-      });
+    const { data, error } = await supabase
+      .from('shops')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      setShops((prev) => [...prev, createdShop]);
-      setShopName('');
-      setCategory('');
-      setAddress('');
-      setComment('');
-      setMessage('');
-      setIsModalOpen(false);
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : '登録に失敗しました'
-      );
+    if (error) {
+      setMessage(`店舗一覧の取得に失敗しました: ${error.message}`);
+      return;
     }
+
+    // DBの snake_case を画面用の camelCase に変換
+    setShops(
+      (data ?? []).map((shop) => ({
+        id: shop.id,
+        name: shop.name,
+        postalCode: shop.postal_code ?? '',
+        address: shop.address ?? '',
+        category: shop.category ?? '',
+        comment: shop.comment ?? '',
+        imageUrl: shop.image_url ?? undefined,
+        createdAt: shop.created_at ?? '',
+      }))
+    );
   };
+
+  loadShops();
+}, []);
+
+  const handleDelete = async (id: string) => {
+  if (!window.confirm('このお店をリストから削除しますか？')) return;
+
+  try {
+    const { error } = await supabase
+      .from('shops')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // 削除成功後に画面からも消す
+    setShops((prev) => prev.filter((shop) => shop.id !== id));
+  } catch (error) {
+    setMessage(
+      error instanceof Error ? error.message : '削除に失敗しました'
+    );
+  }
+};
+
+  const handleSubmit = async () => {
+  const name = shopName.trim();
+
+  if (!name) {
+    setMessage('お店の名前を入力してください');
+    return;
+  }
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setMessage('ログインが必要です');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('shops')
+      .insert({
+        // これが「このユーザーが登録した店舗」にするための重要な値
+        user_id: user.id,
+        name,
+        category: category.trim(),
+        address: address.trim(),
+        comment: comment.trim(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const createdShop: Shop = {
+      id: data.id,
+      name: data.name,
+      postalCode: data.postal_code ?? '',
+      address: data.address ?? '',
+      category: data.category ?? '',
+      comment: data.comment ?? '',
+      imageUrl: data.image_url ?? undefined,
+      createdAt: data.created_at ?? '',
+    };
+
+    setShops((prev) => [...prev, createdShop]);
+    setShopName('');
+    setCategory('');
+    setAddress('');
+    setComment('');
+    setMessage('');
+    setIsModalOpen(false);
+  } catch (error) {
+    setMessage(
+      error instanceof Error ? error.message : '登録に失敗しました'
+    );
+  }
+};
 
   const filteredShops = shops.filter((shop) => {
     const q = searchQuery.trim().toLowerCase();

@@ -6,6 +6,11 @@ import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
 import type { Shop } from './action';
 import { supabase } from '../lib/supabaseClient';
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
+} from '@vis.gl/react-google-maps';
 
 const MagnifyingGlass = () => (
   <svg

@@ -1,9 +1,18 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
+import { supabase } from '../lib/supabaseClient';
+import {
+  loadStoredProfile,
+  loadUserProfile,
+  saveUserProfile,
+  uploadProfileAvatar,
+} from '../lib/profileStorage';
+
+const LOGIN_INFO_STORAGE_KEY = 'lunch-share-login-info';
 
 const PenIcon = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -17,20 +26,59 @@ export default function RegisterInfoPage() {
   const [name, setName] = useState('ささき しょうま');
   const [editing, setEditing] = useState(false);
   const [tempName, setTempName] = useState(name);
-  const [email, setEmail] = useState('1234567@ecc.ac.jp');
-  const [password, setPassword] = useState('password123');
-  const [editingEmail, setEditingEmail] = useState(false);
-  const [editingPassword, setEditingPassword] = useState(false);
+  const [email, setEmail] = useState('');
   const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const localProfile = loadStoredProfile();
+    setName(localProfile.name);
+    setTempName(localProfile.name);
+    setAvatarSrc(localProfile.avatarSrc);
+
+    async function syncProfile() {
+      const storedProfile = await loadUserProfile();
+      setName(storedProfile.name);
+      setTempName(storedProfile.name);
+      setAvatarSrc(storedProfile.avatarSrc);
+    }
+    async function syncLoginInfo() {
+  const { data } = await supabase.auth.getUser();
+  const authEmail = data.user?.email ?? '';
+  const storedLoginInfo = window.localStorage.getItem(LOGIN_INFO_STORAGE_KEY);
+
+  if (storedLoginInfo) {
+    try {
+      const parsedLoginInfo = JSON.parse(storedLoginInfo) as {
+        email?: string;
+        password?: string;
+      };
+
+      setEmail(authEmail || parsedLoginInfo.email || '');
+      
+      return;
+    } catch {
+      window.localStorage.removeItem(LOGIN_INFO_STORAGE_KEY);
+    }
+  }
+
+  setEmail(authEmail);
+}
+
+syncLoginInfo();
+
+    syncProfile();
+  }, []);
 
   const handleEditStart = () => {
     setTempName(name);
     setEditing(true);
   };
 
-  const handleEditDone = () => {
-    setName(tempName);
+  const handleEditDone = async () => {
+    const nextName = tempName.trim() || name;
+    setName(nextName);
+    await saveUserProfile({ name: nextName });
     setEditing(false);
   };
 
@@ -39,11 +87,11 @@ export default function RegisterInfoPage() {
     if (e.key === 'Escape') setEditing(false);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    setAvatarSrc(url);
+    const avatarUrl = await uploadProfileAvatar(file);
+    setAvatarSrc(avatarUrl);
   };
 
   return (
@@ -116,50 +164,18 @@ export default function RegisterInfoPage() {
         <div style={styles.fieldList}>
           <div style={styles.fieldRow}>
             <span style={styles.fieldLabel}>メールアドレス</span>
-            {editingEmail ? (
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onBlur={() => setEditingEmail(false)}
-                autoFocus
-                style={styles.fieldEditInput}
-              />
-            ) : (
-              <>
-                <span style={styles.fieldValue}>{email}</span>
-                <button
-                  style={styles.arrowBtn}
-                  onClick={() => setEditingEmail(true)}
-                >
-                  ›
-                </button>
-              </>
-            )}
+            <span style={styles.fieldValue}>{email}</span>
           </div>
 
           <div style={styles.fieldRow}>
             <span style={styles.fieldLabel}>パスワード</span>
-            {editingPassword ? (
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onBlur={() => setEditingPassword(false)}
-                autoFocus
-                style={styles.fieldEditInput}
-              />
-            ) : (
-              <>
-                <span style={styles.fieldValue}>{'•'.repeat(password.length)}</span>
-                <button
-                  style={styles.arrowBtn}
-                  onClick={() => setEditingPassword(true)}
-                >
-                  ›
-                </button>
-              </>
-            )}
+            <span style={styles.fieldValue}>*******</span>
+            <button
+              style={styles.arrowBtn}
+              onClick={() => router.push('/reset-password')}
+            >
+              ＞
+            </button>
           </div>
         </div>
       </main>
@@ -175,8 +191,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     background: '#fff',
     display: 'flex',
     flexDirection: 'column',
-    fontFamily:
-      '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    fontFamily: '-apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif',
+    paddingTop: 72,
+    paddingBottom: 72,
   },
   main: {
     flex: 1,
@@ -241,6 +258,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 18,
     fontWeight: 600,
     letterSpacing: 2,
+    color: '#333',
   },
   nameInput: {
     fontSize: 18,
@@ -250,6 +268,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     textAlign: 'center',
     background: 'transparent',
     flex: 1,
+    color: '#333',
   },
   editBtn: {
     background: 'transparent',

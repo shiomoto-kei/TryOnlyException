@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabaseClient';
+import { getAuthErrorMessage } from '../lib/authErrorMessage';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -17,19 +18,24 @@ export default function LoginPage() {
         setErrorMessage('');
         setIsSubmitting(true);
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-        });
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email: email.trim(),
+                password,
+            });
 
-        setIsSubmitting(false);
-
-        if (error) {
-            setErrorMessage('メールアドレスまたはパスワードが正しくありません。');
+            if (error) {
+                setErrorMessage(getAuthErrorMessage(error, 'login'));
+                return;
+            }
+        } catch (error) {
+            setErrorMessage(getAuthErrorMessage(error, 'login'));
             return;
+        } finally {
+            setIsSubmitting(false);
         }
 
-        router.push('/main');
+        router.push('/question');
     };
 
     return (
@@ -69,6 +75,10 @@ export default function LoginPage() {
                     <button type="submit" style={styles.loginButton} disabled={isSubmitting}>
                         {isSubmitting ? 'ログイン中...' : 'ログイン'}
                     </button>
+
+                    <a href="/forgot-password" style={styles.forgotPasswordLink}>
+                        パスワードをお忘れの場合
+                    </a>
                 </form>
 
                 <div style={styles.divider} />
@@ -157,6 +167,14 @@ const styles: Record<string, CSSProperties> = {
         fontWeight: 700,
         letterSpacing: 0,
         cursor: "pointer",
+    },
+    forgotPasswordLink: {
+        marginTop: 18,
+        color: "#1F1F1F",
+        fontSize: 12,
+        fontWeight: 500,
+        letterSpacing: 0,
+        textDecoration: "none",
     },
     divider: {
         width: "100%",

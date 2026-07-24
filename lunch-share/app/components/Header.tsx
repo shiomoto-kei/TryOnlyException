@@ -1,9 +1,36 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  loadStoredProfile,
+  loadUserProfile,
+  PROFILE_UPDATED_EVENT,
+} from '../lib/profileStorage';
 
 export default function Header() {
   const router = useRouter();
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const syncProfile = () => {
+      setAvatarSrc(loadStoredProfile().avatarSrc);
+    };
+    const syncUserProfile = async () => {
+      const profile = await loadUserProfile();
+      setAvatarSrc(profile.avatarSrc);
+    };
+
+    syncProfile();
+    syncUserProfile();
+    window.addEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+    window.addEventListener('storage', syncProfile);
+
+    return () => {
+      window.removeEventListener(PROFILE_UPDATED_EVENT, syncProfile);
+      window.removeEventListener('storage', syncProfile);
+    };
+  }, []);
 
   return (
     <header style={styles.header}>
@@ -17,7 +44,12 @@ export default function Header() {
 
       <button
         onClick={() => router.push('/profile')}
-        style={styles.profileAvatar}
+        style={{
+          ...styles.profileAvatar,
+          backgroundImage: avatarSrc ? `url(${avatarSrc})` : undefined,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
         aria-label="プロフィール"
       />
     </header>
@@ -31,6 +63,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
   },
   logoButton: {
     background: 'none',

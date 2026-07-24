@@ -1,7 +1,13 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+    loadStoredProfile,
+    loadUserProfile,
+    saveUserProfile,
+    uploadProfileAvatar,
+} from '../lib/profileStorage';
 
 export default function AccountSetupPage() {
     const router = useRouter();
@@ -9,14 +15,30 @@ export default function AccountSetupPage() {
     const [nickname, setNickname] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    useEffect(() => {
+        setAvatarSrc(loadStoredProfile().avatarSrc);
+
+        async function syncProfile() {
+            const storedProfile = await loadUserProfile();
+            setAvatarSrc(storedProfile.avatarSrc);
+            setNickname(storedProfile.name === 'ささき しょうま' ? '' : storedProfile.name);
+        }
+
+        syncProfile();
+    }, []);
+
+    const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const url = URL.createObjectURL(file);
-        setAvatarSrc(url);
+        const avatarUrl = await uploadProfileAvatar(file);
+        setAvatarSrc(avatarUrl);
     };
 
-    const handleStart = () => {
+    const handleStart = async () => {
+        if (nickname.trim()) {
+            await saveUserProfile({ name: nickname.trim(), avatarSrc });
+        }
+
         router.push('/main');
     };
 

@@ -1,9 +1,13 @@
 ﻿'use server';
 
+import { supabaseServer } from '../lib/supabaseServer';
+
 export type Member = {
   id: string;
   name: string;
   avatarColor: string;
+  shop?: string | null;
+  menu?: string | null;
 };
 
 export type Group = {
@@ -47,10 +51,6 @@ function buildMemberPositions(
 }
 
 export async function getMainPageData(): Promise<MainPageData> {
-  // TODO: Supabase 準備後に DB 取得へ差し替え
-  // const { data: group } = await supabase.from('groups').select('*').single();
-  // const { data: members } = await supabase.from('members').select('*').eq('group_id', group.id);
-
   const group: Group = {
     id: 'default-group',
     name: 'ささき班',
@@ -58,19 +58,29 @@ export async function getMainPageData(): Promise<MainPageData> {
   };
 
   const members: Member[] = [
-    { id: 'member-1', name: '佐藤', avatarColor: '#F87171' },
-    { id: 'member-2', name: '鈴木', avatarColor: '#FB923C' },
-    // { id: 'member-3', name: '高橋', avatarColor: '#FACC15' },
-    // { id: 'member-4', name: '田中', avatarColor: '#4ADE80' },
-    // { id: 'member-5', name: '伊藤', avatarColor: '#2DD4BF' },
-    // { id: 'member-6', name: '渡辺', avatarColor: '#60A5FA' },
-    { id: 'member-7', name: '山本', avatarColor: '#A78BFA' },
-    { id: 'member-8', name: '中村', avatarColor: '#F472B6' },
+    { id: 'member-1', name: '佐藤', avatarColor: '#F87171', shop: 'MENMENというお店', menu: 'チャーシューまぜそば' },
+    { id: 'member-2', name: '鈴木', avatarColor: '#FB923C', shop: 'やよい軒', menu: '肉野菜炒め定食' },
+    { id: 'member-7', name: '山本', avatarColor: '#A78BFA', shop: 'すき家', menu: '牛丼大盛り' },
+    { id: 'member-8', name: '中村', avatarColor: '#F472B6', shop: 'マクドナルド', menu: 'ビッグマックセット' },
   ];
+
+  const { data: posts } = await supabaseServer
+    .from('lunch_posts')
+    .select('user_id, shop, menu')
+    .order('created_at', { ascending: false });
+
+  const membersWithPosts = members.map((member) => {
+    const latestPost = posts?.find((p) => p.user_id === member.id);
+    return {
+      ...member,
+      shop: latestPost?.shop ?? member.shop ?? null,  // DBになければサンプルにフォールバック
+      menu: latestPost?.menu ?? member.menu ?? null,
+    };
+  });
 
   return {
     group,
-    members: buildMemberPositions(members),
+    members: buildMemberPositions(membersWithPosts),
   };
 }
 
@@ -88,10 +98,29 @@ export async function createLunchPost(
     };
   }
 
-  // TODO: Supabase 準備後に insert へ差し替え
-  // await supabase.from('lunch_posts').insert({ shop, menu, comment });
+  const { data: { user } } = await supabaseServer.auth.getUser();
 
-  console.log('mock lunch post:', { shop, menu, comment });
+  if (!user) {
+    return {
+      ok: false,
+      message: 'ログインが必要です。',
+    };
+  }
+
+  const { error } = await supabaseServer.from('lunch_posts').insert({
+    shop,
+    menu,
+    comment,
+    user_id: user.id,
+    group_id: 'default-group', // TODO: 動的なgroup_idに差し替え
+  });
+
+  if (error) {
+    return {
+      ok: false,
+      message: `投稿に失敗しました: ${error.message}`,
+    };
+  }
 
   return {
     ok: true,

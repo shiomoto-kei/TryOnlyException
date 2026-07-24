@@ -254,6 +254,31 @@ export default function ShopListPage() {
                 />
               </div>
 
+              <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+                <Map
+                  style={{
+                    width: "100%",
+                    height: "250px",
+                    marginTop: "12px",
+                    borderRadius: "8px",
+                  }}
+                  defaultCenter={{
+                    lat: 35.681236,
+                    lng: 139.767125,
+                  }}
+                  defaultZoom={16}
+                  gestureHandling="greedy"
+                  disableDefaultUI={false}
+                >
+                  <AdvancedMarker
+                    position={{
+                      lat: 34.702485,
+                      lng: 135.495951,
+                    }}
+                  />
+                </Map>
+              </APIProvider>
+
               <div style={styles.row}>
                 <span style={styles.label}>画像：</span>
                 <button type="button" style={styles.photoButton}>

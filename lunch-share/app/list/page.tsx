@@ -4,13 +4,12 @@ import { useEffect, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
-import { createShop, getShops, type Shop } from './action';
+import { createShop, deleteShop, getShops, type Shop } from './action';
 import {
   APIProvider,
   Map,
   AdvancedMarker,
 } from "@vis.gl/react-google-maps";
-import { createShop, deleteShop, getShops, type Shop } from './action';
 
 const MagnifyingGlass = () => (
   <svg

@@ -17,6 +17,8 @@ export default function ShopCard({
   onSelect,
   onDelete,
 }: ShopCardProps) {
+  const mapUrl =
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
   return (
     <article
       style={styles.card}
@@ -50,8 +52,17 @@ export default function ShopCard({
       <p style={styles.detail}>{postalCode}</p>
       <p style={styles.detail}>{address}</p>
 
-      <div style={styles.photoRow} aria-hidden="true">
-        <div style={styles.photoPlaceholder} />
+      <div style={styles.photoRow}>
+        <a
+          href={mapUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={styles.mapButton}
+          onClick={(e) => e.stopPropagation()}
+        >
+          タップして地図を表示
+        </a>
+
         <div style={styles.photoPlaceholder} />
       </div>
     </article>
@@ -124,5 +135,19 @@ const styles: { [key: string]: React.CSSProperties } = {
     width: 76,
     height: 69,
     background: '#d9d9d9',
+  },
+  mapButton: {
+    width: 76,
+    height: 69,
+    background: '#d9d9d9',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    textAlign: 'center',
+    textDecoration: 'none',
+    color: '#333',
+    fontSize: 11,
+    fontWeight: 700,
+    borderRadius: 2,
   },
 };

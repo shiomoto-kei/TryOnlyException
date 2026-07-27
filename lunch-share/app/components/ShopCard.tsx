@@ -17,8 +17,9 @@ export default function ShopCard({
   onSelect,
   onDelete,
 }: ShopCardProps) {
+  const mapQuery = [name, address].filter(Boolean).join(' ');
   const mapUrl =
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
   return (
     <article
       style={styles.card}

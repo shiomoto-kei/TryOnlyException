@@ -1,16 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
 import type { Shop } from './action';
 import { supabase } from '../lib/supabaseClient';
-import {
-  APIProvider,
-  Map,
-  AdvancedMarker,
-} from '@vis.gl/react-google-maps';
+import ShopPlacePicker, { type PlaceSelection } from './ShopPlacePicker';
 
 const MagnifyingGlass = () => (
   <svg
@@ -43,8 +39,30 @@ export default function ShopListPage() {
   const [shopName, setShopName] = useState('');
   const [category, setCategory] = useState('');
   const [address, setAddress] = useState('');
+  const [mapPosition, setMapPosition] =
+    useState<google.maps.LatLngLiteral | null>(null);
   const [comment, setComment] = useState('');
   const [message, setMessage] = useState('');
+  const googleMapsApiKey =
+    process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+
+  const handlePlaceQueryChange = useCallback((value: string) => {
+    setShopName(value);
+    setAddress('');
+    setMapPosition(null);
+    setMessage('');
+  }, []);
+
+  const handlePlaceSelect = useCallback((place: PlaceSelection) => {
+    setShopName(place.name);
+    setAddress(place.address);
+    setMapPosition(place.position);
+    setMessage('');
+  }, []);
+
+  const handlePlaceError = useCallback((errorMessage: string) => {
+    setMessage(errorMessage);
+  }, []);
 
   useEffect(() => {
   const loadShops = async () => {
@@ -154,6 +172,7 @@ export default function ShopListPage() {
     setShopName('');
     setCategory('');
     setAddress('');
+    setMapPosition(null);
     setComment('');
     setMessage('');
     setIsModalOpen(false);
@@ -229,13 +248,15 @@ export default function ShopListPage() {
               style={styles.modalCard}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={styles.row}>
-                <span style={styles.label}>お気に入りのお店：</span>
-                <input
-                  type="text"
-                  value={shopName}
-                  onChange={(e) => setShopName(e.target.value)}
-                  style={styles.underlineInput}
+              <div style={styles.placeSearchBlock}>
+                <label style={styles.label}>行きたいお店：</label>
+                <ShopPlacePicker
+                  apiKey={googleMapsApiKey}
+                  query={shopName}
+                  position={mapPosition}
+                  onQueryChange={handlePlaceQueryChange}
+                  onPlaceSelect={handlePlaceSelect}
+                  onError={handlePlaceError}
                 />
               </div>
 
@@ -255,34 +276,10 @@ export default function ShopListPage() {
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
+                  placeholder="候補を選ぶと自動入力されます"
                   style={styles.underlineInput}
                 />
               </div>
-
-              <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
-                <Map
-                  style={{
-                    width: "100%",
-                    height: "250px",
-                    marginTop: "12px",
-                    borderRadius: "8px",
-                  }}
-                  defaultCenter={{
-                    lat: 35.681236,
-                    lng: 139.767125,
-                  }}
-                  defaultZoom={16}
-                  gestureHandling="greedy"
-                  disableDefaultUI={false}
-                >
-                  <AdvancedMarker
-                    position={{
-                      lat: 34.702485,
-                      lng: 135.495951,
-                    }}
-                  />
-                </Map>
-              </APIProvider>
 
               <div style={styles.row}>
                 <span style={styles.label}>画像：</span>
@@ -459,6 +456,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   modalCard: {
     width: 'min(80vw, 320px)',
+    maxHeight: 'calc(100dvh - 120px)',
     padding: '20px 18px 16px',
     border: '1px solid #888',
     borderRadius: 14,
@@ -468,6 +466,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     flexDirection: 'column',
     gap: 12,
     boxSizing: 'border-box',
+    overflowY: 'auto',
+    overscrollBehavior: 'contain',
+  },
+  placeSearchBlock: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
   },
   row: {
     display: 'flex',

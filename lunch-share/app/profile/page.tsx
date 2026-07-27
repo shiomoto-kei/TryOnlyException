@@ -37,6 +37,31 @@ const FriendListIcon = () => (
   </svg>
 );
 
+const GroupCreateIcon = () => (
+  <svg
+    width="48"
+    height="48"
+    viewBox="0 0 48 48"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <circle cx="19" cy="15" r="7" stroke="#535353" strokeWidth="3" />
+    <path
+      d="M7 37C7 29.82 12.37 25 19 25C23.34 25 27.12 27.06 29.2 30.45"
+      stroke="#535353"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+    <path
+      d="M36 27V41M29 34H43"
+      stroke="#535353"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 const DEFAULT_PROFILE: StoredProfile = {
   name: 'ゲストユーザー',
   avatarSrc: null,
@@ -235,6 +260,11 @@ export default function ProfilePage() {
           <button onClick={() => router.push('/friendlist')} style={styles.menuButton}>
             <FriendListIcon />
             <span style={styles.menuLabel}>フレンド一覧</span>
+          </button>
+
+          <button onClick={() => router.push('/group')} style={styles.menuButton}>
+            <GroupCreateIcon />
+            <span style={styles.menuLabel}>グループ作成</span>
           </button>
         </div>
 

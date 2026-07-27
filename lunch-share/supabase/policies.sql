@@ -98,3 +98,93 @@ with check (
   bucket_id = 'profile-avatars'
   and (select auth.uid())::text = (storage.foldername(name))[1]
 );
+
+grant select, insert, update on public.groups to authenticated;
+grant select, insert, update on public.group_members to authenticated;
+
+alter table public.groups enable row level security;
+alter table public.group_members enable row level security;
+
+drop policy if exists "Users can create groups" on public.groups;
+drop policy if exists "Users can read joined groups" on public.groups;
+drop policy if exists "Group owners can update groups" on public.groups;
+
+create policy "Users can create groups"
+on public.groups
+for insert
+to authenticated
+with check ((select auth.uid()) = owner_user_id);
+
+create policy "Users can read joined groups"
+on public.groups
+for select
+to authenticated
+using (
+  owner_user_id = (select auth.uid())
+  or exists (
+    select 1
+    from public.group_members
+    where group_members.group_id = groups.id
+      and group_members.user_id = (select auth.uid())
+  )
+);
+
+create policy "Group owners can update groups"
+on public.groups
+for update
+to authenticated
+using (owner_user_id = (select auth.uid()))
+with check (owner_user_id = (select auth.uid()));
+
+drop policy if exists "Users can read joined group members" on public.group_members;
+drop policy if exists "Users can add group members" on public.group_members;
+drop policy if exists "Group owners can update group members" on public.group_members;
+
+create policy "Users can read joined group members"
+on public.group_members
+for select
+to authenticated
+using (
+  user_id = (select auth.uid())
+  or exists (
+    select 1
+    from public.group_members own_membership
+    where own_membership.group_id = group_members.group_id
+      and own_membership.user_id = (select auth.uid())
+  )
+);
+
+create policy "Users can add group members"
+on public.group_members
+for insert
+to authenticated
+with check (
+  user_id = (select auth.uid())
+  or exists (
+    select 1
+    from public.groups
+    where groups.id = group_members.group_id
+      and groups.owner_user_id = (select auth.uid())
+  )
+);
+
+create policy "Group owners can update group members"
+on public.group_members
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.groups
+    where groups.id = group_members.group_id
+      and groups.owner_user_id = (select auth.uid())
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.groups
+    where groups.id = group_members.group_id
+      and groups.owner_user_id = (select auth.uid())
+  )
+);

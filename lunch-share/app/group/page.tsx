@@ -6,8 +6,11 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 import { supabase } from '../lib/supabaseClient';
-import { createGroup, getGroupPageData } from './action';
+import { addGroupMembers, createGroup, getGroupPageData } from './action';
 import type { GroupFriend, JoinedGroup } from './action';
+import JoinRequestPanel, {
+  GROUP_MEMBERS_UPDATED_EVENT,
+} from './JoinRequestPanel';
 
 const GROUP_COLORS = [
   '#F5B042',
@@ -26,8 +29,13 @@ export default function GroupPage() {
   const [iconColor, setIconColor] = useState(GROUP_COLORS[0]);
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [message, setMessage] = useState('読み込み中...');
+  const [isMessageError, setIsMessageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [newMemberIds, setNewMemberIds] = useState<string[]>([]);
+  const [memberMessage, setMemberMessage] = useState('');
+  const [isAddingMembers, setIsAddingMembers] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -47,6 +55,7 @@ export default function GroupPage() {
       setFriends(result.friends);
       setGroups(result.groups);
       setMessage(result.message);
+      setIsMessageError(!result.ok);
       setIsLoading(false);
     };
 
@@ -70,6 +79,7 @@ export default function GroupPage() {
 
     setIsSubmitting(true);
     setMessage('');
+    setIsMessageError(false);
 
     try {
       const { data } = await supabase.auth.getSession();
@@ -83,6 +93,7 @@ export default function GroupPage() {
       );
 
       setMessage(result.message);
+      setIsMessageError(!result.ok);
       if (!result.ok) return;
 
       router.push('/main');
@@ -90,6 +101,82 @@ export default function GroupPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const openMemberModal = (groupId: string) => {
+    setActiveGroupId(groupId);
+    setNewMemberIds([]);
+    setMemberMessage('');
+  };
+
+  const closeMemberModal = () => {
+    if (isAddingMembers) return;
+    setActiveGroupId(null);
+    setNewMemberIds([]);
+    setMemberMessage('');
+  };
+
+  const toggleNewMember = (memberId: string) => {
+    setNewMemberIds((current) =>
+      current.includes(memberId)
+        ? current.filter((id) => id !== memberId)
+        : [...current, memberId],
+    );
+  };
+
+  const handleAddMembers = async () => {
+    if (!activeGroupId || isAddingMembers) return;
+
+    setIsAddingMembers(true);
+    setMemberMessage('');
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      const result = await addGroupMembers(
+        {
+          groupId: activeGroupId,
+          memberIds: newMemberIds,
+        },
+        accessToken,
+      );
+
+      setMemberMessage(result.message);
+      if (!result.ok) return;
+
+      const pageResult = await getGroupPageData(accessToken);
+      setFriends(pageResult.friends);
+      setGroups(pageResult.groups);
+      setMessage(result.message);
+      setIsMessageError(false);
+      setActiveGroupId(null);
+      setNewMemberIds([]);
+      window.dispatchEvent(new Event(GROUP_MEMBERS_UPDATED_EVENT));
+      router.refresh();
+    } finally {
+      setIsAddingMembers(false);
+    }
+  };
+
+  const activeGroup = groups.find((group) => group.id === activeGroupId);
+  const availableFriends = activeGroup
+    ? friends.filter((friend) => !activeGroup.memberIds.includes(friend.id))
+    : [];
+
+  const handleRequestApproved = (groupId: string, userId: string) => {
+    setGroups((current) =>
+      current.map((group) => {
+        if (group.id !== groupId || group.memberIds.includes(userId)) {
+          return group;
+        }
+
+        return {
+          ...group,
+          memberCount: group.memberCount + 1,
+          memberIds: [...group.memberIds, userId],
+        };
+      }),
+    );
   };
 
   return (
@@ -131,11 +218,99 @@ export default function GroupPage() {
                       {index === 0 ? '・Mainに表示中' : ''}
                     </span>
                   </div>
+                  {group.isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => openMemberModal(group.id)}
+                      style={styles.memberAddButton}
+                    >
+                      メンバー追加
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           </section>
         )}
+
+        {activeGroup && (
+          <div
+            style={styles.modalBackdrop}
+            role="presentation"
+            onClick={closeMemberModal}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${activeGroup.name}にメンバーを追加`}
+              style={styles.modalCard}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h2 style={styles.modalTitle}>メンバー追加</h2>
+              <p style={styles.modalGroupName}>{activeGroup.name}</p>
+
+              {availableFriends.length === 0 ? (
+                <p style={styles.emptyMessage}>
+                  追加できるフレンドはいません。
+                </p>
+              ) : (
+                <div style={styles.modalFriendList}>
+                  {availableFriends.map((friend) => (
+                    <label key={friend.id} style={styles.friendRow}>
+                      <input
+                        type="checkbox"
+                        checked={newMemberIds.includes(friend.id)}
+                        onChange={() => toggleNewMember(friend.id)}
+                        style={styles.checkbox}
+                        disabled={isAddingMembers}
+                      />
+                      <span
+                        style={{
+                          ...styles.friendAvatar,
+                          backgroundImage: friend.avatarUrl
+                            ? `url(${friend.avatarUrl})`
+                            : undefined,
+                        }}
+                      />
+                      <span style={styles.friendName}>{friend.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              {memberMessage && (
+                <p style={styles.modalMessage} role="status">
+                  {memberMessage}
+                </p>
+              )}
+
+              <div style={styles.modalButtons}>
+                <button
+                  type="button"
+                  onClick={closeMemberModal}
+                  style={styles.cancelButton}
+                  disabled={isAddingMembers}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddMembers}
+                  style={{
+                    ...styles.confirmButton,
+                    opacity:
+                      newMemberIds.length === 0 || isAddingMembers ? 0.6 : 1,
+                  }}
+                  disabled={newMemberIds.length === 0 || isAddingMembers}
+                >
+                  {isAddingMembers ? '追加中...' : '追加'}
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        <JoinRequestPanel onApproved={handleRequestApproved} />
 
         <section style={styles.section}>
           <h2 style={styles.sectionTitle}>新しいグループを作成</h2>
@@ -234,9 +409,7 @@ export default function GroupPage() {
             <p
               style={{
                 ...styles.message,
-                color: message === 'グループを作成しました。'
-                  ? '#267A4A'
-                  : '#C53A3A',
+                color: isMessageError ? '#C53A3A' : '#267A4A',
               }}
               role="status"
             >
@@ -347,6 +520,7 @@ const styles: Record<string, CSSProperties> = {
     flexShrink: 0,
   },
   groupInfo: {
+    flex: 1,
     minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
@@ -361,6 +535,19 @@ const styles: Record<string, CSSProperties> = {
   groupMeta: {
     fontSize: 11,
     color: '#777',
+  },
+  memberAddButton: {
+    minWidth: 92,
+    height: 32,
+    padding: '0 10px',
+    border: '1px solid #F5B042',
+    borderRadius: 6,
+    background: '#fff',
+    color: '#B66A00',
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: 'pointer',
+    flexShrink: 0,
   },
   field: {
     position: 'relative',
@@ -502,5 +689,87 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
     cursor: 'pointer',
     boxShadow: '0 2px 0 #C98421',
+  },
+  modalBackdrop: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 200,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    background: 'rgba(255,255,255,0.7)',
+    boxSizing: 'border-box',
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 340,
+    maxHeight: 'min(520px, 80vh)',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 12,
+    padding: '20px 18px',
+    border: '1px solid #888',
+    borderRadius: 8,
+    background: '#fff',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.14)',
+    boxSizing: 'border-box',
+  },
+  modalTitle: {
+    margin: 0,
+    color: '#333',
+    fontSize: 18,
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+  modalGroupName: {
+    margin: 0,
+    color: '#B66A00',
+    fontSize: 14,
+    fontWeight: 700,
+    textAlign: 'center',
+    overflowWrap: 'anywhere',
+  },
+  modalFriendList: {
+    display: 'flex',
+    flexDirection: 'column',
+    overflowY: 'auto',
+    borderTop: '1px solid #eee',
+  },
+  modalMessage: {
+    margin: 0,
+    color: '#C53A3A',
+    fontSize: 12,
+    fontWeight: 700,
+    lineHeight: 1.5,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 4,
+  },
+  cancelButton: {
+    minWidth: 100,
+    height: 38,
+    border: '1px solid #bbb',
+    borderRadius: 6,
+    background: '#fff',
+    color: '#555',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  confirmButton: {
+    minWidth: 100,
+    height: 38,
+    border: 0,
+    borderRadius: 6,
+    background: '#F5B042',
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: 'pointer',
   },
 };

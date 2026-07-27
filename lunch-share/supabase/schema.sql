@@ -70,6 +70,17 @@ create table if not exists public.group_members (
   unique (group_id, user_id)
 );
 
+create table if not exists public.group_join_requests (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (group_id, user_id)
+);
+
 do $$
 begin
   if not exists (
@@ -92,6 +103,12 @@ on public.group_members(group_id);
 
 create index if not exists group_members_user_id_idx
 on public.group_members(user_id);
+
+create index if not exists group_join_requests_group_status_idx
+on public.group_join_requests(group_id, status, created_at desc);
+
+create index if not exists group_join_requests_user_id_idx
+on public.group_join_requests(user_id);
 
 create index if not exists lunch_posts_group_id_created_at_idx
 on public.lunch_posts(group_id, created_at desc);

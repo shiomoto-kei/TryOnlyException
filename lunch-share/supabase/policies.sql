@@ -101,9 +101,11 @@ with check (
 
 grant select, insert, update on public.groups to authenticated;
 grant select, insert, update on public.group_members to authenticated;
+grant select, insert, update on public.group_join_requests to authenticated;
 
 alter table public.groups enable row level security;
 alter table public.group_members enable row level security;
+alter table public.group_join_requests enable row level security;
 
 drop policy if exists "Users can create groups" on public.groups;
 drop policy if exists "Users can read joined groups" on public.groups;
@@ -185,6 +187,54 @@ with check (
     select 1
     from public.groups
     where groups.id = group_members.group_id
+      and groups.owner_user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Users can read relevant join requests" on public.group_join_requests;
+drop policy if exists "Users can create own join requests" on public.group_join_requests;
+drop policy if exists "Group owners can review join requests" on public.group_join_requests;
+
+create policy "Users can read relevant join requests"
+on public.group_join_requests
+for select
+to authenticated
+using (
+  user_id = (select auth.uid())
+  or exists (
+    select 1
+    from public.groups
+    where groups.id = group_join_requests.group_id
+      and groups.owner_user_id = (select auth.uid())
+  )
+);
+
+create policy "Users can create own join requests"
+on public.group_join_requests
+for insert
+to authenticated
+with check (
+  user_id = (select auth.uid())
+  and status = 'pending'
+);
+
+create policy "Group owners can review join requests"
+on public.group_join_requests
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.groups
+    where groups.id = group_join_requests.group_id
+      and groups.owner_user_id = (select auth.uid())
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.groups
+    where groups.id = group_join_requests.group_id
       and groups.owner_user_id = (select auth.uid())
   )
 );

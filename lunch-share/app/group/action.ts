@@ -13,6 +13,8 @@ export type JoinedGroup = {
   name: string;
   iconColor: string;
   memberCount: number;
+  memberIds: string[];
+  isOwner: boolean;
 };
 
 export type GroupPageData = {
@@ -34,6 +36,17 @@ export type CreateGroupResult = {
   groupId?: string;
 };
 
+export type AddGroupMembersInput = {
+  groupId: string;
+  memberIds: string[];
+};
+
+export type AddGroupMembersResult = {
+  ok: boolean;
+  message: string;
+  addedCount?: number;
+};
+
 type FriendRow = {
   friend_user_id: string;
   friend_name: string | null;
@@ -48,10 +61,12 @@ type GroupRow = {
   id: string;
   name: string;
   icon_color: string | null;
+  owner_user_id: string;
 };
 
 type GroupMemberRow = {
   group_id: string;
+  user_id: string;
 };
 
 const GROUP_COLORS = [
@@ -132,11 +147,11 @@ export async function getGroupPageData(
   const [groupResult, memberResult] = await Promise.all([
     supabaseServer
       .from('groups')
-      .select('id, name, icon_color')
+      .select('id, name, icon_color, owner_user_id')
       .in('id', groupIds),
     supabaseServer
       .from('group_members')
-      .select('group_id')
+      .select('group_id, user_id')
       .in('group_id', groupIds),
   ]);
 
@@ -149,12 +164,11 @@ export async function getGroupPageData(
     };
   }
 
-  const memberCounts = new Map<string, number>();
+  const memberIdsByGroup = new Map<string, string[]>();
   for (const member of (memberResult.data as GroupMemberRow[] | null) ?? []) {
-    memberCounts.set(
-      member.group_id,
-      (memberCounts.get(member.group_id) ?? 0) + 1,
-    );
+    const memberIds = memberIdsByGroup.get(member.group_id) ?? [];
+    memberIds.push(member.user_id);
+    memberIdsByGroup.set(member.group_id, memberIds);
   }
 
   const groupMap = new Map(
@@ -173,7 +187,9 @@ export async function getGroupPageData(
         id: group.id,
         name: group.name,
         iconColor: group.icon_color ?? '#e0e0e0',
-        memberCount: memberCounts.get(group.id) ?? 0,
+        memberCount: memberIdsByGroup.get(group.id)?.length ?? 0,
+        memberIds: memberIdsByGroup.get(group.id) ?? [],
+        isOwner: group.owner_user_id === userId,
       },
     ];
   });
@@ -304,5 +320,138 @@ export async function createGroup(
     ok: true,
     message: 'グループを作成しました。',
     groupId: group.id,
+  };
+}
+
+export async function addGroupMembers(
+  input: AddGroupMembersInput,
+  accessToken?: string,
+): Promise<AddGroupMembersResult> {
+  const userId = await getUserId(accessToken);
+
+  if (!userId) {
+    return {
+      ok: false,
+      message: 'ログインが必要です。',
+    };
+  }
+
+  const groupId = input.groupId.trim();
+  const requestedMemberIds = [
+    ...new Set(input.memberIds.filter((memberId) => memberId !== userId)),
+  ];
+
+  if (!groupId || requestedMemberIds.length === 0) {
+    return {
+      ok: false,
+      message: '追加するフレンドを選択してください。',
+    };
+  }
+
+  const { data: ownedGroup, error: groupError } = await supabaseServer
+    .from('groups')
+    .select('id')
+    .eq('id', groupId)
+    .eq('owner_user_id', userId)
+    .maybeSingle();
+
+  if (groupError || !ownedGroup) {
+    return {
+      ok: false,
+      message: 'メンバーを追加できるのはグループのオーナーだけです。',
+    };
+  }
+
+  const { data: friendRows, error: friendError } = await supabaseServer
+    .from('friends')
+    .select('friend_user_id')
+    .eq('user_id', userId)
+    .in('friend_user_id', requestedMemberIds);
+
+  if (friendError) {
+    return {
+      ok: false,
+      message: '選択したフレンドを確認できませんでした。',
+    };
+  }
+
+  const allowedFriendIds = new Set(
+    ((friendRows as Pick<FriendRow, 'friend_user_id'>[] | null) ?? []).map(
+      (friend) => friend.friend_user_id,
+    ),
+  );
+
+  if (allowedFriendIds.size !== requestedMemberIds.length) {
+    return {
+      ok: false,
+      message: 'フレンド一覧が更新されています。画面を再読み込みしてください。',
+    };
+  }
+
+  const { data: existingRows, error: existingError } = await supabaseServer
+    .from('group_members')
+    .select('user_id')
+    .eq('group_id', groupId)
+    .in('user_id', requestedMemberIds);
+
+  if (existingError) {
+    return {
+      ok: false,
+      message: '現在のメンバーを確認できませんでした。',
+    };
+  }
+
+  const existingMemberIds = new Set(
+    ((existingRows as Pick<GroupMemberRow, 'user_id'>[] | null) ?? []).map(
+      (member) => member.user_id,
+    ),
+  );
+  const newMemberIds = requestedMemberIds.filter(
+    (memberId) => !existingMemberIds.has(memberId),
+  );
+
+  if (newMemberIds.length === 0) {
+    return {
+      ok: true,
+      message: '選択したフレンドはすでに参加しています。',
+      addedCount: 0,
+    };
+  }
+
+  const { error: insertError } = await supabaseServer
+    .from('group_members')
+    .upsert(
+      newMemberIds.map((memberId) => ({
+        group_id: groupId,
+        user_id: memberId,
+        role: 'member',
+      })),
+      {
+        onConflict: 'group_id,user_id',
+        ignoreDuplicates: true,
+      },
+    );
+
+  if (insertError) {
+    return {
+      ok: false,
+      message: 'メンバーを追加できませんでした。',
+    };
+  }
+
+  await supabaseServer
+    .from('group_join_requests')
+    .update({
+      status: 'approved',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('group_id', groupId)
+    .eq('status', 'pending')
+    .in('user_id', newMemberIds);
+
+  return {
+    ok: true,
+    message: `${newMemberIds.length}人をグループに追加しました。`,
+    addedCount: newMemberIds.length,
   };
 }

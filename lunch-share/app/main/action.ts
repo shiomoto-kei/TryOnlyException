@@ -1,4 +1,4 @@
-﻿'use server';
+'use server';
 
 import { supabaseServer } from '../lib/supabaseServer';
 
@@ -36,6 +36,74 @@ export type LunchPostResult = {
   message: string;
 };
 
+type ProfileRow = {
+  id: string;
+  name: string | null;
+};
+
+type GroupRow = {
+  id: string;
+  name: string;
+  icon_color: string | null;
+};
+
+type MembershipRow = {
+  group_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+type LunchPostRow = {
+  user_id: string | null;
+  shop: string | null;
+  menu: string | null;
+  created_at: string;
+};
+
+const DEFAULT_GROUP: Group = {
+  id: 'no-group',
+  name: 'グループ未設定',
+  iconColor: '#e0e0e0',
+};
+
+const AVATAR_COLORS = [
+  '#F87171',
+  '#FB923C',
+  '#FACC15',
+  '#4ADE80',
+  '#2DD4BF',
+  '#60A5FA',
+  '#A78BFA',
+  '#F472B6',
+];
+
+function pickAvatarColor(userId: string): string {
+  const sum = [...userId].reduce((total, char) => total + char.charCodeAt(0), 0);
+  return AVATAR_COLORS[sum % AVATAR_COLORS.length];
+}
+
+function getTodayRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+}
+
+async function getUserIdFromToken(accessToken?: string): Promise<string | null> {
+  if (!accessToken) return null;
+
+  const { data, error } = await supabaseServer.auth.getUser(accessToken);
+  if (error || !data.user) return null;
+
+  return data.user.id;
+}
+
 function buildMemberPositions(
   memberList: Member[],
   startAngle = -90,
@@ -50,31 +118,102 @@ function buildMemberPositions(
   }));
 }
 
-export async function getMainPageData(): Promise<MainPageData> {
-  const group: Group = {
-    id: 'default-group',
-    name: 'ささき班',
-    iconColor: '#e0e0e0',
-  };
+export async function getMainPageData(
+  accessToken?: string,
+): Promise<MainPageData> {
+  const userId = await getUserIdFromToken(accessToken);
 
-  const members: Member[] = [
-    { id: 'member-1', name: '佐藤', avatarColor: '#F87171', shop: 'MENMENというお店', menu: 'チャーシューまぜそば' },
-    { id: 'member-2', name: '鈴木', avatarColor: '#FB923C', shop: 'やよい軒', menu: '肉野菜炒め定食' },
-    { id: 'member-7', name: '山本', avatarColor: '#A78BFA', shop: 'すき家', menu: '牛丼大盛り' },
-    { id: 'member-8', name: '中村', avatarColor: '#F472B6', shop: 'マクドナルド', menu: 'ビッグマックセット' },
-  ];
-
-  const { data: posts } = await supabaseServer
-    .from('lunch_posts')
-    .select('user_id, shop, menu')
-    .order('created_at', { ascending: false });
-
-  const membersWithPosts = members.map((member) => {
-    const latestPost = posts?.find((p) => p.user_id === member.id);
+  if (!userId) {
     return {
-      ...member,
-      shop: latestPost?.shop ?? member.shop ?? null,  // DBになければサンプルにフォールバック
-      menu: latestPost?.menu ?? member.menu ?? null,
+      group: DEFAULT_GROUP,
+      members: [],
+    };
+  }
+
+  const { data: membership } = await supabaseServer
+    .from('group_members')
+    .select('group_id, user_id, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!membership?.group_id) {
+    return {
+      group: DEFAULT_GROUP,
+      members: buildMemberPositions([
+        {
+          id: userId,
+          name: 'あなた',
+          avatarColor: pickAvatarColor(userId),
+          shop: null,
+          menu: null,
+        },
+      ]),
+    };
+  }
+
+  const groupId = String(membership.group_id);
+  const { start, end } = getTodayRange();
+
+  const [groupResult, memberResult, postResult] = await Promise.all([
+    supabaseServer
+      .from('groups')
+      .select('id, name, icon_color')
+      .eq('id', groupId)
+      .maybeSingle(),
+    supabaseServer
+      .from('group_members')
+      .select('group_id, user_id, created_at')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: true }),
+    supabaseServer
+      .from('lunch_posts')
+      .select('user_id, shop, menu, created_at')
+      .eq('group_id', groupId)
+      .gte('created_at', start)
+      .lt('created_at', end)
+      .order('created_at', { ascending: false }),
+  ]);
+
+  const groupRow = groupResult.data as GroupRow | null;
+  const group: Group = groupRow
+    ? {
+        id: groupRow.id,
+        name: groupRow.name,
+        iconColor: groupRow.icon_color ?? '#e0e0e0',
+      }
+    : DEFAULT_GROUP;
+
+  const memberRows = (memberResult.data as MembershipRow[] | null) ?? [];
+  const memberIds = memberRows.map((member) => member.user_id);
+
+  const { data: profileRows } =
+    memberIds.length > 0
+      ? await supabaseServer
+          .from('profiles')
+          .select('id, name')
+          .in('id', memberIds)
+      : { data: [] };
+
+  const profiles = new Map(
+    ((profileRows as ProfileRow[] | null) ?? []).map((profile) => [
+      profile.id,
+      profile,
+    ]),
+  );
+  const posts = (postResult.data as LunchPostRow[] | null) ?? [];
+
+  const membersWithPosts = memberRows.map((member) => {
+    const profile = profiles.get(member.user_id);
+    const latestPost = posts.find((post) => post.user_id === member.user_id);
+
+    return {
+      id: member.user_id,
+      name: profile?.name?.trim() || '名前未設定',
+      avatarColor: pickAvatarColor(member.user_id),
+      shop: latestPost?.shop ?? null,
+      menu: latestPost?.menu ?? null,
     };
   });
 
@@ -86,6 +225,7 @@ export async function getMainPageData(): Promise<MainPageData> {
 
 export async function createLunchPost(
   input: LunchPostInput,
+  accessToken?: string,
 ): Promise<LunchPostResult> {
   const shop = input.shop.trim();
   const menu = input.menu.trim();
@@ -98,12 +238,27 @@ export async function createLunchPost(
     };
   }
 
-  const { data: { user } } = await supabaseServer.auth.getUser();
+  const userId = await getUserIdFromToken(accessToken);
 
-  if (!user) {
+  if (!userId) {
     return {
       ok: false,
       message: 'ログインが必要です。',
+    };
+  }
+
+  const { data: membership } = await supabaseServer
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!membership?.group_id) {
+    return {
+      ok: false,
+      message: '先にグループを作成、または参加してください。',
     };
   }
 
@@ -111,8 +266,8 @@ export async function createLunchPost(
     shop,
     menu,
     comment,
-    user_id: user.id,
-    group_id: 'default-group', // TODO: 動的なgroup_idに差し替え
+    user_id: userId,
+    group_id: membership.group_id,
   });
 
   if (error) {

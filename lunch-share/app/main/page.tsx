@@ -5,24 +5,17 @@ import type { CSSProperties } from 'react';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 import PushNotificationManager from '../components/PushNotificationManager';
+import { supabase } from '../lib/supabaseClient';
 import { createLunchPost, getMainPageData } from './action';
 import type { MainPageData } from './action';
 
-const sampleStatuses: { id: string; name: string; mealStatus: 'ある' | 'ない' }[] = [
-  { id: '1', name: 'ささき しょうま', mealStatus: 'ある' },
-  { id: '2', name: 'ささき しょうま', mealStatus: 'ない' },
-  { id: '3', name: 'ささき しょうま', mealStatus: 'ない' },
-  { id: '4', name: 'ささき しょうま', mealStatus: 'ある' },
-  { id: '5', name: 'ささき しょうま', mealStatus: 'ある' },
-];
-
 const BubbleSvg = () => (
   <svg width="172" height="95" viewBox="0 0 172 95" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M86.426 93.3945C86.2298 93.7051 85.7766 93.7051 85.5803 93.3945L75.4788 77.4072C75.2685 77.0744 75.507 76.6399 75.9006 76.6396L96.1057 76.6396C96.4995 76.6397 96.7389 77.0743 96.5286 77.4072L86.426 93.3945Z" fill="white" stroke="black"/>
-    <rect x="0.5" y="0.5" width="171.008" height="78.6324" rx="4.5" fill="white" stroke="black"/>
-    <rect width="2.46583" height="2.78384" transform="matrix(0.924318 -0.381623 0.530522 0.847671 76.7155 78.3989)" fill="white"/>
-    <rect width="2.41037" height="2.60783" transform="matrix(0.921484 0.388417 -0.53843 0.84267 93.0873 77.501)" fill="white"/>
-    <rect x="79.0985" y="78" width="13.8102" height="2" fill="white"/>
+    <path d="M86.426 93.3945C86.2298 93.7051 85.7766 93.7051 85.5803 93.3945L75.4788 77.4072C75.2685 77.0744 75.507 76.6399 75.9006 76.6396L96.1057 76.6396C96.4995 76.6397 96.7389 77.0743 96.5286 77.4072L86.426 93.3945Z" fill="white" stroke="black" />
+    <rect x="0.5" y="0.5" width="171.008" height="78.6324" rx="4.5" fill="white" stroke="black" />
+    <rect width="2.46583" height="2.78384" transform="matrix(0.924318 -0.381623 0.530522 0.847671 76.7155 78.3989)" fill="white" />
+    <rect width="2.41037" height="2.60783" transform="matrix(0.921484 0.388417 -0.53843 0.84267 93.0873 77.501)" fill="white" />
+    <rect x="79.0985" y="78" width="13.8102" height="2" fill="white" />
   </svg>
 );
 
@@ -35,27 +28,44 @@ export default function HomePage() {
   const [pageData, setPageData] = useState<MainPageData | null>(null);
   const [message, setMessage] = useState('');
   const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const loadData = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const data = await getMainPageData(sessionData.session?.access_token);
+    setPageData(data);
+  };
 
   useEffect(() => {
-    async function loadData() {
-      const data = await getMainPageData();
-      setPageData(data);
-    }
     loadData();
   }, []);
 
   const handleAdd = () => {
+    setMessage('');
     setIsModalOpen(true);
   };
 
   const handleSubmit = async () => {
-    const result = await createLunchPost({ shop, menu, comment });
-    setMessage(result.message);
-    if (!result.ok) return;
-    setShop('');
-    setMenu('');
-    setComment('');
-    setIsModalOpen(false);
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const result = await createLunchPost({ shop, menu, comment }, accessToken);
+      setMessage(result.message);
+      if (!result.ok) return;
+
+      const data = await getMainPageData(accessToken);
+      setPageData(data);
+      setShop('');
+      setMenu('');
+      setComment('');
+      setMessage('');
+      setIsModalOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAvatarClick = (id: string) => {
@@ -84,10 +94,7 @@ export default function HomePage() {
 
       <PushNotificationManager />
 
-      <main
-        style={styles.main}
-        onClick={() => setActiveBubbleId(null)}
-      >
+      <main style={styles.main} onClick={() => setActiveBubbleId(null)}>
         <div style={styles.circleArea}>
           {pageData?.members.map((member) => {
             const radius = 110;
@@ -113,9 +120,9 @@ export default function HomePage() {
                       </span>
                       {member.shop && member.menu && (
                         <>
-                          {'の'}
+                          {' の '}
                           <span style={styles.bubbleMenu}>{member.menu}</span>
-                          {'が食べたい！'}
+                          {' が食べたい！'}
                         </>
                       )}
                     </p>
@@ -123,13 +130,16 @@ export default function HomePage() {
                 )}
 
                 <button
+                  type="button"
                   title={member.name}
+                  aria-label={`${member.name}の投稿を見る`}
                   style={{
                     ...styles.memberAvatar,
                     background: member.avatarColor,
+                    border: member.shop && member.menu ? '3px solid #FF5757' : '3px solid #B9D7FF',
                   }}
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  onClick={(event) => {
+                    event.stopPropagation();
                     handleAvatarClick(member.id);
                   }}
                 />
@@ -137,7 +147,13 @@ export default function HomePage() {
             );
           })}
 
-          <button onClick={handleAdd} style={styles.addButton}>＋</button>
+          {pageData?.members.length === 0 && (
+            <p style={styles.emptyText}>グループに参加すると、メンバーの投稿が表示されます。</p>
+          )}
+
+          <button type="button" onClick={handleAdd} style={styles.addButton}>
+            +
+          </button>
         </div>
 
         {isStatusModalOpen && (
@@ -149,38 +165,39 @@ export default function HomePage() {
             <section
               aria-modal="true"
               role="dialog"
-              aria-label="みんなのご飯状況"
+              aria-label="みんなの投稿状況"
               style={styles.statusModalCard}
               onClick={(event) => event.stopPropagation()}
             >
               <div style={styles.flagWrapper}>
                 <img src="/flag.png" alt="" style={styles.flagImage} />
-                <span style={styles.flagText}>みんなのご飯状況</span>
+                <span style={styles.flagText}>みんなの投稿状況</span>
               </div>
 
               <ul style={styles.statusList}>
-                {sampleStatuses.map((member) => (
-                  <li key={member.id} style={styles.statusRow}>
-                    <div
-                      style={{
-                        ...styles.statusAvatar,
-                        background:
-                          pageData?.members.find((m) => m.id === member.id)?.avatarColor ?? '#d4d4d4',
-                      }}
-                    />
-                    <span style={styles.statusName}>{member.name}</span>
-                    <span
-                      style={{
-                        ...styles.statusBadge,
-                        ...(member.mealStatus === 'ある'
-                          ? styles.statusBadgeYes
-                          : styles.statusBadgeNo),
-                      }}
-                    >
-                      {member.mealStatus}
-                    </span>
-                  </li>
-                ))}
+                {(pageData?.members ?? []).map((member) => {
+                  const hasPost = Boolean(member.shop && member.menu);
+
+                  return (
+                    <li key={member.id} style={styles.statusRow}>
+                      <div
+                        style={{
+                          ...styles.statusAvatar,
+                          background: member.avatarColor,
+                        }}
+                      />
+                      <span style={styles.statusName}>{member.name}</span>
+                      <span
+                        style={{
+                          ...styles.statusBadge,
+                          ...(hasPost ? styles.statusBadgeYes : styles.statusBadgeNo),
+                        }}
+                      >
+                        {hasPost ? 'あり' : 'なし'}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           </div>
@@ -234,8 +251,13 @@ export default function HomePage() {
 
               {message && <p style={styles.message}>{message}</p>}
 
-              <button onClick={handleSubmit} style={styles.submitButton}>
-                投稿
+              <button
+                type="button"
+                onClick={handleSubmit}
+                style={styles.submitButton}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? '投稿中...' : '投稿'}
               </button>
             </section>
           </div>
@@ -297,9 +319,17 @@ const styles: { [key: string]: CSSProperties } = {
     height: 50,
     borderRadius: '50%',
     background: '#d4d4d4',
-    border: 'none',
     cursor: 'pointer',
     padding: 0,
+  },
+  emptyText: {
+    width: 220,
+    margin: 0,
+    color: '#777',
+    fontSize: 13,
+    fontWeight: 700,
+    lineHeight: 1.6,
+    textAlign: 'center',
   },
   bubbleWrapper: {
     position: 'absolute',

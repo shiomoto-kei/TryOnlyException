@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 import PushNotificationManager from '../components/PushNotificationManager';
@@ -20,6 +21,7 @@ const BubbleSvg = () => (
 );
 
 export default function HomePage() {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [shop, setShop] = useState('');
@@ -41,6 +43,11 @@ export default function HomePage() {
   }, []);
 
   const handleAdd = () => {
+    if (pageData?.group.id === 'no-group') {
+      router.push('/group');
+      return;
+    }
+
     setMessage('');
     setIsModalOpen(true);
   };
@@ -78,7 +85,14 @@ export default function HomePage() {
 
       <button
         type="button"
-        onClick={() => setIsStatusModalOpen(true)}
+        onClick={() => {
+          if (pageData?.group.id === 'no-group') {
+            router.push('/group');
+            return;
+          }
+
+          setIsStatusModalOpen(true);
+        }}
         style={styles.groupRow}
       >
         <div
@@ -96,7 +110,7 @@ export default function HomePage() {
 
       <main style={styles.main} onClick={() => setActiveBubbleId(null)}>
         <div style={styles.circleArea}>
-          {pageData?.members.map((member) => {
+          {pageData?.group.id !== 'no-group' && pageData?.members.map((member) => {
             const radius = 110;
             const rad = (member.angle * Math.PI) / 180;
             const x = Math.cos(rad) * radius;
@@ -147,13 +161,26 @@ export default function HomePage() {
             );
           })}
 
-          {pageData?.members.length === 0 && (
-            <p style={styles.emptyText}>グループに参加すると、メンバーの投稿が表示されます。</p>
+          {pageData?.group.id === 'no-group' && (
+            <div style={styles.emptyState}>
+              <p style={styles.emptyText}>
+                グループに参加すると、メンバーの投稿が表示されます。
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push('/group')}
+                style={styles.groupCreateButton}
+              >
+                グループを作成
+              </button>
+            </div>
           )}
 
-          <button type="button" onClick={handleAdd} style={styles.addButton}>
-            +
-          </button>
+          {pageData?.group.id !== 'no-group' && (
+            <button type="button" onClick={handleAdd} style={styles.addButton}>
+              +
+            </button>
+          )}
         </div>
 
         {isStatusModalOpen && (
@@ -359,6 +386,25 @@ const styles: { [key: string]: CSSProperties } = {
     textAlign: 'center',
     boxSizing: 'border-box',
     pointerEvents: 'none',
+  },
+  emptyState: {
+    width: 220,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 10,
+  },
+  groupCreateButton: {
+    height: 34,
+    padding: '0 16px',
+    border: 'none',
+    borderRadius: 6,
+    background: '#F5B042',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 2px 0 #C98421',
   },
   bubbleShop: {
     color: '#D27000',

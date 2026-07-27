@@ -134,7 +134,7 @@ export async function getMainPageData(
     .from('group_members')
     .select('group_id, user_id, created_at')
     .eq('user_id', userId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
@@ -251,7 +251,7 @@ export async function createLunchPost(
     .from('group_members')
     .select('group_id')
     .eq('user_id', userId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 

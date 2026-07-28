@@ -67,6 +67,9 @@ const DEFAULT_PROFILE: StoredProfile = {
   avatarSrc: null,
 };
 
+const USER_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 type FoundUser = {
   id: string;
   name: string;
@@ -141,22 +144,30 @@ export default function ProfilePage() {
     setFoundUser(null);
     setSearchMessage('');
     setSendMessage('');
-    if (!searchId.trim()) return;
+    const targetUserId = searchId.trim();
+    if (!targetUserId) return;
+
+    if (!USER_ID_PATTERN.test(targetUserId)) {
+      setSearchMessage('ユーザーIDの形式が正しくありません。');
+      return;
+    }
 
     setIsSearching(true);
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, avatar_url')
-      .eq('id', searchId.trim())
-      .single();
+      .rpc('find_profile_by_id', {
+        target_user_id: targetUserId,
+      })
+      .maybeSingle();
 
     setIsSearching(false);
 
-    if (error || !data) {
+    const foundProfile = data as Exclude<FoundUser, null> | null;
+
+    if (error || !foundProfile) {
       setSearchMessage('ユーザーが見つかりませんでした。');
       return;
     }
-    setFoundUser(data);
+    setFoundUser(foundProfile);
   };
 
   const handleSendRequest = async () => {

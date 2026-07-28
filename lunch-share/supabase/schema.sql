@@ -52,6 +52,40 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.friends (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  friend_user_id uuid not null references auth.users(id) on delete cascade,
+  friend_name text,
+  friend_avatar_url text,
+  created_at timestamptz not null default now(),
+  unique (user_id, friend_user_id),
+  check (user_id <> friend_user_id)
+);
+
+create index if not exists friends_user_id_idx
+on public.friends(user_id);
+
+create or replace function public.find_profile_by_id(target_user_id uuid)
+returns table (
+  id uuid,
+  name text,
+  avatar_url text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select profiles.id, profiles.name, profiles.avatar_url
+  from public.profiles
+  where profiles.id = target_user_id
+  limit 1;
+$$;
+
+revoke all on function public.find_profile_by_id(uuid) from public;
+grant execute on function public.find_profile_by_id(uuid) to authenticated;
+
 create table if not exists public.groups (
   id uuid primary key default gen_random_uuid(),
   name text not null,

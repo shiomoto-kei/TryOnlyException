@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
@@ -9,6 +9,8 @@ import PushNotificationManager from '../components/PushNotificationManager';
 import { supabase } from '../lib/supabaseClient';
 import { createLunchPost, getMainPageData } from './action';
 import type { MainPageData } from './action';
+import ShopPlacePicker, { type PlaceSelection } from '../list/ShopPlacePicker';
+
 
 const BubbleSvg = () => (
   <svg width="172" height="95" viewBox="0 0 172 95" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -25,12 +27,39 @@ export default function HomePage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [shop, setShop] = useState('');
+  const [shopMapUrl, setShopMapUrl] = useState('');
+  const [mapPosition, setMapPosition] =
+  useState<google.maps.LatLngLiteral | null>(null);
   const [menu, setMenu] = useState('');
   const [comment, setComment] = useState('');
   const [pageData, setPageData] = useState<MainPageData | null>(null);
   const [message, setMessage] = useState('');
   const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+
+const handlePlaceQueryChange = useCallback((value: string) => {
+  setShop(value);
+  setMapPosition(null);
+  setMessage('');
+  setShopMapUrl('');
+}, []);
+
+const handlePlaceSelect = useCallback((place: PlaceSelection) => {
+  setShop(place.name);
+  setMapPosition(place.position);
+
+  const query = `${place.position.lat},${place.position.lng}`;
+  setShopMapUrl(
+    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+  );
+
+  setMessage('');
+}, []);
+
+const handlePlaceError = useCallback((errorMessage: string) => {
+  setMessage(errorMessage);
+}, []);
 
   const loadData = async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -39,8 +68,29 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+  void loadData();
+
+  const refreshData = () => {
+    void loadData();
+  };
+
+  const refreshWhenVisible = () => {
+    if (document.visibilityState === 'visible') {
+      void loadData();
+    }
+  };
+
+  const intervalId = window.setInterval(refreshData, 15_000);
+
+  window.addEventListener('focus', refreshData);
+  document.addEventListener('visibilitychange', refreshWhenVisible);
+
+  return () => {
+    window.clearInterval(intervalId);
+    window.removeEventListener('focus', refreshData);
+    document.removeEventListener('visibilitychange', refreshWhenVisible);
+  };
+}, []);
 
   const handleAdd = () => {
     if (pageData?.group.id === 'no-group') {
@@ -59,13 +109,18 @@ export default function HomePage() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      const result = await createLunchPost({ shop, menu, comment }, accessToken);
+      const result = await createLunchPost(
+        { shop, menu, comment, mapUrl: shopMapUrl },
+        accessToken,
+      );
       setMessage(result.message);
       if (!result.ok) return;
 
       const data = await getMainPageData(accessToken);
       setPageData(data);
       setShop('');
+      setShopMapUrl('');
+      setMapPosition(null);
       setMenu('');
       setComment('');
       setMessage('');
@@ -129,14 +184,32 @@ export default function HomePage() {
                   <div style={styles.bubbleWrapper}>
                     <BubbleSvg />
                     <p style={styles.bubbleText}>
-                      <span style={styles.bubbleShop}>
-                        {member.shop ?? '未投稿'}
+                      <span>
+                        {member.shop ? (
+                          member.mapUrl ? (
+                            <a
+                              href={member.mapUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={styles.bubbleShopLink}
+                              onClick={(event) => event.stopPropagation()}
+                            >
+                              {member.shop}
+                            </a>
+                          ) : (
+                            <span style={styles.bubbleShop}>{member.shop}</span>
+                          )
+                        ) : (
+                          <span>未投稿</span>
+                        )}
+
+                        {member.shop && 'の'}
                       </span>
+
                       {member.shop && member.menu && (
                         <>
-                          {' の '}
                           <span style={styles.bubbleMenu}>{member.menu}</span>
-                          {' が食べたい！'}
+                          <span>が食べたい！</span>
                         </>
                       )}
                     </p>
@@ -246,15 +319,18 @@ export default function HomePage() {
               style={styles.modalCard}
               onClick={(event) => event.stopPropagation()}
             >
-              <label style={styles.field}>
-                <span style={styles.label}>行きたいお店</span>
-                <input
-                  type="text"
-                  value={shop}
-                  onChange={(event) => setShop(event.target.value)}
-                  style={styles.underlineInput}
+              <div style={styles.placeSearchBlock}>
+                <span style={styles.label}>行きたい店</span>
+
+                <ShopPlacePicker
+                  apiKey={googleMapsApiKey}
+                  query={shop}
+                  position={mapPosition}
+                  onQueryChange={handlePlaceQueryChange}
+                  onPlaceSelect={handlePlaceSelect}
+                  onError={handlePlaceError}
                 />
-              </label>
+              </div>
 
               <label style={styles.field}>
                 <span style={styles.label}>食べたいメニュー</span>
@@ -374,7 +450,8 @@ const styles: { [key: string]: CSSProperties } = {
     width: '100%',
     height: 79,
     display: 'flex',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
+    gap: 2,
     justifyContent: 'center',
     alignItems: 'center',
     padding: '0 12px',
@@ -385,7 +462,7 @@ const styles: { [key: string]: CSSProperties } = {
     lineHeight: 1.5,
     textAlign: 'center',
     boxSizing: 'border-box',
-    pointerEvents: 'none',
+    pointerEvents: 'auto',
   },
   emptyState: {
     width: 220,
@@ -433,18 +510,25 @@ const styles: { [key: string]: CSSProperties } = {
     zIndex: 5,
   },
   modalCard: {
-    width: 'min(72vw, 300px)',
-    minHeight: 168,
-    padding: '24px 18px 16px',
-    border: '1px solid #888',
-    borderRadius: 14,
-    background: '#fff',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 10,
-    boxSizing: 'border-box',
-  },
+  width: 'min(72vw, 300px)',
+  maxHeight: 'calc(100dvh - 120px)',
+  padding: '24px 18px 16px',
+  border: '1px solid #888',
+  borderRadius: 14,
+  background: '#fff',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 10,
+  boxSizing: 'border-box',
+  overflowY: 'auto',
+  overscrollBehavior: 'contain',
+},
+placeSearchBlock: {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 3,
+},
   statusModalCard: {
     width: 'min(78vw, 320px)',
     padding: '0 18px 20px',
@@ -591,4 +675,10 @@ const styles: { [key: string]: CSSProperties } = {
     cursor: 'pointer',
     boxShadow: '0 2px 0 #C98421',
   },
+  bubbleShopLink: {
+  color: '#D27000',
+  textDecoration: 'underline',
+  fontWeight: 700,
+  cursor: 'pointer',
+},
 };

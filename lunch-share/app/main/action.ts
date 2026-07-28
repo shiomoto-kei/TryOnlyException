@@ -8,6 +8,7 @@ export type Member = {
   avatarColor: string;
   shop?: string | null;
   menu?: string | null;
+  mapUrl?: string | null;
 };
 
 export type Group = {
@@ -29,6 +30,7 @@ export type LunchPostInput = {
   shop: string;
   menu: string;
   comment: string;
+  mapUrl?: string;
 };
 
 export type LunchPostResult = {
@@ -57,6 +59,7 @@ type LunchPostRow = {
   user_id: string | null;
   shop: string | null;
   menu: string | null;
+  map_url: string | null;
   created_at: string;
 };
 
@@ -173,7 +176,7 @@ export async function getMainPageData(
       .order('created_at', { ascending: true }),
     supabaseServer
       .from('lunch_posts')
-      .select('user_id, shop, menu, created_at')
+      .select('user_id, shop, menu, map_url, created_at')
       .eq('group_id', groupId)
       .gte('created_at', start)
       .lt('created_at', end)
@@ -218,6 +221,7 @@ export async function getMainPageData(
       avatarColor: pickAvatarColor(member.user_id),
       shop: latestPost?.shop ?? null,
       menu: latestPost?.menu ?? null,
+      mapUrl: latestPost?.map_url ?? null,
     };
   });
 
@@ -267,12 +271,13 @@ export async function createLunchPost(
   }
 
   const { error } = await supabaseServer.from('lunch_posts').insert({
-    shop,
-    menu,
-    comment,
-    user_id: userId,
-    group_id: membership.group_id,
-  });
+  shop,
+  menu,
+  comment,
+  map_url: input.mapUrl?.trim() || null,
+  user_id: userId,
+  group_id: membership.group_id,
+});
 
   if (error) {
     return {

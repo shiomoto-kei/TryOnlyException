@@ -82,16 +82,20 @@ function pickAvatarColor(userId: string): string {
   return AVATAR_COLORS[sum % AVATAR_COLORS.length];
 }
 
-function getTodayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
+function getTodayRange(now = new Date()) {
+  const nowInJst = new Date(now.getTime() + JST_OFFSET_MS);
+  const startTimestamp =
+    Date.UTC(
+      nowInJst.getUTCFullYear(),
+      nowInJst.getUTCMonth(),
+      nowInJst.getUTCDate(),
+    ) - JST_OFFSET_MS;
 
   return {
-    start: start.toISOString(),
-    end: end.toISOString(),
+    start: new Date(startTimestamp).toISOString(),
+    end: new Date(startTimestamp + 24 * 60 * 60 * 1000).toISOString(),
   };
 }
 

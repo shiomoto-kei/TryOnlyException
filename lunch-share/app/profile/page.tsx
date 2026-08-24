@@ -163,6 +163,13 @@ export default function ProfilePage() {
 
     const foundProfile = data as Exclude<FoundUser, null> | null;
 
+    if (error?.code === 'PGRST202') {
+      setSearchMessage(
+        'フレンド検索のデータベース設定が未反映です。管理者に連絡してください。',
+      );
+      return;
+    }
+
     if (error || !foundProfile) {
       setSearchMessage('ユーザーが見つかりませんでした。');
       return;

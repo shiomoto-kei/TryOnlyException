@@ -35,7 +35,12 @@ export default function LoginPage() {
             setIsSubmitting(false);
         }
 
-        router.push('/question');
+        const redirectTo = new URLSearchParams(window.location.search).get('redirectTo');
+        const safeRedirectTo =
+            redirectTo?.startsWith('/') && !redirectTo.startsWith('//')
+                ? redirectTo
+                : '/question';
+        router.push(safeRedirectTo);
     };
 
     return (

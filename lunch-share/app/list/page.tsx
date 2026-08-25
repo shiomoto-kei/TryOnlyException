@@ -164,7 +164,7 @@ export default function ShopListPage() {
       data: { publicUrl },
     } = supabase.storage.from(SHOP_IMAGES_BUCKET).getPublicUrl(filePath);
 
-    return publicUrl;
+    return { filePath, publicUrl };
   };
 
   const updateShopImage = async (shopId: string, file: File) => {
@@ -180,6 +180,7 @@ export default function ShopListPage() {
 
     setIsUploadingImage(true);
     setMessage('');
+    let uploadedImagePath: string | null = null;
 
     try {
       const {
@@ -191,11 +192,12 @@ export default function ShopListPage() {
         return;
       }
 
-      const imageUrl = await uploadShopImage({
+      const { filePath, publicUrl: imageUrl } = await uploadShopImage({
         file,
         shopId,
         userId: user.id,
       });
+      uploadedImagePath = filePath;
 
       const { data, error } = await supabase
         .from('shops')
@@ -228,6 +230,12 @@ export default function ShopListPage() {
       );
       setMessage('');
     } catch (error) {
+      if (uploadedImagePath) {
+        await supabase.storage
+          .from(SHOP_IMAGES_BUCKET)
+          .remove([uploadedImagePath]);
+      }
+
       setMessage(
         error instanceof Error ? error.message : '画像の更新に失敗しました'
       );
@@ -415,25 +423,44 @@ export default function ShopListPage() {
     if (error) throw error;
 
     let imageUrl: string | undefined;
+    let imageWarning = '';
 
     if (imageFile) {
-      imageUrl = await uploadShopImage({
-        file: imageFile,
-        shopId: data.id,
-        userId: user.id,
-      });
+      let uploadedImagePath: string | null = null;
 
-      const { data: updatedData, error: updateError } = await supabase
-        .from('shops')
-        .update({ image_url: imageUrl })
-        .eq('id', data.id)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+      try {
+        const { filePath, publicUrl } = await uploadShopImage({
+          file: imageFile,
+          shopId: data.id,
+          userId: user.id,
+        });
+        uploadedImagePath = filePath;
+        imageUrl = publicUrl;
 
-      if (updateError) throw updateError;
+        const { data: updatedData, error: updateError } = await supabase
+          .from('shops')
+          .update({ image_url: imageUrl })
+          .eq('id', data.id)
+          .eq('user_id', user.id)
+          .select()
+          .single();
 
-      data.image_url = updatedData.image_url ?? imageUrl;
+        if (updateError) throw updateError;
+
+        data.image_url = updatedData.image_url ?? imageUrl;
+      } catch (imageError) {
+        if (uploadedImagePath) {
+          await supabase.storage
+            .from(SHOP_IMAGES_BUCKET)
+            .remove([uploadedImagePath]);
+        }
+
+        imageUrl = undefined;
+        imageWarning =
+          imageError instanceof Error
+            ? `お店は追加されましたが、写真の保存に失敗しました: ${imageError.message}`
+            : 'お店は追加されましたが、写真の保存に失敗しました';
+      }
     }
 
     const createdShop: Shop = {
@@ -456,7 +483,7 @@ export default function ShopListPage() {
     setMapPosition(null);
     setComment('');
     clearCreateImage();
-    setMessage('');
+    setMessage(imageWarning);
     setIsModalOpen(false);
   } catch (error) {
     setMessage(
@@ -504,6 +531,10 @@ export default function ShopListPage() {
             お店の追加
           </button>
         </div>
+
+        {message && !isModalOpen && !selectedShop && (
+          <p style={styles.pageMessage}>{message}</p>
+        )}
 
         <section style={styles.cardList} aria-label="お店一覧">
           {filteredShops.map((shop) => (
@@ -928,6 +959,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#e00',
     fontSize: 11,
     margin: 0,
+  },
+  pageMessage: {
+    maxWidth: 270,
+    margin: '0 auto 14px',
+    color: '#b33',
+    fontSize: 11,
+    fontWeight: 700,
+    lineHeight: 1.5,
   },
   submitButton: {
     alignSelf: 'center',

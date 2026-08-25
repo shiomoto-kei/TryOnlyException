@@ -5,21 +5,67 @@ type ShopCardProps = {
   postalCode: string;
   address: string;
   category: string;
+  latitude?: number;
+  longitude?: number;
+  googleMapsApiKey?: string;
+  imageUrl?: string;
   onSelect?: () => void;
   onDelete?: () => void;
 };
+
+function buildStaticMapUrl({
+  latitude,
+  longitude,
+  apiKey,
+}: {
+  latitude?: number;
+  longitude?: number;
+  apiKey?: string;
+}) {
+  if (
+    typeof latitude !== 'number' ||
+    typeof longitude !== 'number' ||
+    !apiKey
+  ) {
+    return null;
+  }
+
+  const center = `${latitude},${longitude}`;
+  const params = new URLSearchParams({
+    center,
+    zoom: '16',
+    size: '152x138',
+    scale: '2',
+    language: 'ja',
+    region: 'JP',
+    key: apiKey,
+  });
+
+  params.append('markers', `color:red|${center}`);
+
+  return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+}
 
 export default function ShopCard({
   name,
   postalCode,
   address,
   category,
+  latitude,
+  longitude,
+  googleMapsApiKey,
+  imageUrl,
   onSelect,
   onDelete,
 }: ShopCardProps) {
   const mapQuery = [name, address].filter(Boolean).join(' ');
   const mapUrl =
     `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
+  const staticMapUrl = buildStaticMapUrl({
+    latitude,
+    longitude,
+    apiKey: googleMapsApiKey,
+  });
   return (
     <article
       style={styles.card}
@@ -58,13 +104,36 @@ export default function ShopCard({
           href={mapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          style={styles.mapButton}
+          style={{
+            ...styles.mapButton,
+            ...(staticMapUrl
+              ? {
+                  backgroundImage: `url("${staticMapUrl}")`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }
+              : null),
+          }}
           onClick={(e) => e.stopPropagation()}
+          aria-label={`${name}をGoogleマップで表示`}
         >
-          タップして地図を表示
+          {!staticMapUrl && 'タップして地図を表示'}
         </a>
 
-        <div style={styles.photoPlaceholder} />
+        <div
+          aria-label={imageUrl ? `${name}の写真` : undefined}
+          role={imageUrl ? 'img' : undefined}
+          style={{
+            ...styles.photoPlaceholder,
+            ...(imageUrl
+              ? {
+                  backgroundImage: `url("${imageUrl}")`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }
+              : null),
+          }}
+        />
       </div>
     </article>
   );

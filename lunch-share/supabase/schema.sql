@@ -6,8 +6,23 @@ create table if not exists public.shops (
   category text default '',
   comment text default '',
   image_url text,
+  latitude double precision,
+  longitude double precision,
   created_at timestamptz not null default now()
 );
+
+alter table public.shops
+add column if not exists user_id uuid references auth.users(id) on delete set null;
+
+alter table public.shops
+add column if not exists latitude double precision;
+
+alter table public.shops
+add column if not exists longitude double precision;
+
+create index if not exists shops_location_idx
+on public.shops(latitude, longitude)
+where latitude is not null and longitude is not null;
 
 create table if not exists public.lunch_posts (
   id uuid primary key default gen_random_uuid(),
@@ -188,4 +203,8 @@ on public.lunch_posts(group_id, created_at desc);
 
 insert into storage.buckets (id, name, public)
 values ('profile-avatars', 'profile-avatars', true)
+on conflict (id) do update set public = true;
+
+insert into storage.buckets (id, name, public)
+values ('shop-images', 'shop-images', true)
 on conflict (id) do update set public = true;

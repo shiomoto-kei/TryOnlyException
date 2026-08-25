@@ -10,6 +10,8 @@ export type Shop = {
   category: string;
   comment?: string;
   imageUrl?: string;
+  latitude?: number;
+  longitude?: number;
   createdAt: string;
 };
 
@@ -18,6 +20,8 @@ type CreateShopInput = {
   category?: string;
   address?: string;
   comment?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 type ShopRow = {
@@ -30,6 +34,8 @@ type ShopRow = {
   comment?: string | null;
   image_url?: string | null;
   imageUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   created_at?: string | null;
   createdAt?: string | null;
 };
@@ -43,6 +49,8 @@ function toShop(row: ShopRow): Shop {
     category: row.category ?? '',
     comment: row.comment ?? '',
     imageUrl: row.image_url ?? row.imageUrl ?? undefined,
+    latitude: row.latitude ?? undefined,
+    longitude: row.longitude ?? undefined,
     createdAt: row.created_at ?? row.createdAt ?? '',
   };
 }
@@ -74,6 +82,8 @@ export async function createShop(input: CreateShopInput): Promise<Shop> {
       category: input.category?.trim() ?? '',
       address: input.address?.trim() ?? '',
       comment: input.comment?.trim() ?? '',
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
     })
     .select('*')
     .single();

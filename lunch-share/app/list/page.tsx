@@ -242,6 +242,7 @@ export default function ShopListPage() {
 
   const deleteShopImage = async (shop: Shop) => {
     if (!shop.imageUrl || isDeletingImage) return;
+    if (!window.confirm('この写真を削除しますか？')) return;
 
     setIsDeletingImage(true);
     setMessage('');
@@ -258,16 +259,6 @@ export default function ShopListPage() {
 
       const previousImagePath = getShopImagePath(shop.imageUrl);
 
-      if (previousImagePath) {
-        const { error: removeError } = await supabase.storage
-          .from(SHOP_IMAGES_BUCKET)
-          .remove([previousImagePath]);
-
-        if (removeError) {
-          throw new Error(`画像の削除に失敗しました: ${removeError.message}`);
-        }
-      }
-
       const { error } = await supabase
         .from('shops')
         .update({ image_url: null })
@@ -275,6 +266,12 @@ export default function ShopListPage() {
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      if (previousImagePath) {
+        await supabase.storage
+          .from(SHOP_IMAGES_BUCKET)
+          .remove([previousImagePath]);
+      }
 
       setShops((prev) =>
         prev.map((currentShop) =>
@@ -337,19 +334,40 @@ export default function ShopListPage() {
   loadShops();
 }, []);
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (shopToDelete: Shop) => {
   if (!window.confirm('このお店をリストから削除しますか？')) return;
 
   try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setMessage('ログインが必要です');
+      return;
+    }
+
     const { error } = await supabase
       .from('shops')
       .delete()
-      .eq('id', id);
+      .eq('id', shopToDelete.id)
+      .eq('user_id', user.id);
 
     if (error) throw error;
 
+    const imagePath = getShopImagePath(shopToDelete.imageUrl);
+
+    if (imagePath) {
+      await supabase.storage
+        .from(SHOP_IMAGES_BUCKET)
+        .remove([imagePath]);
+    }
+
     // 削除成功後に画面からも消す
-    setShops((prev) => prev.filter((shop) => shop.id !== id));
+    setShops((prev) => prev.filter((shop) => shop.id !== shopToDelete.id));
+    setSelectedShop((current) =>
+      current?.id === shopToDelete.id ? null : current
+    );
   } catch (error) {
     setMessage(
       error instanceof Error ? error.message : '削除に失敗しました'
@@ -500,7 +518,7 @@ export default function ShopListPage() {
               googleMapsApiKey={googleMapsApiKey}
               imageUrl={shop.imageUrl}
               onSelect={() => setSelectedShop(shop)}
-              onDelete={() => handleDelete(shop.id)}
+              onDelete={() => handleDelete(shop)}
             />
           ))}
         </section>
@@ -718,6 +736,8 @@ export default function ShopListPage() {
                   </button>
                 )}
               </div>
+
+              {message && <p style={styles.message}>{message}</p>}
 
               <button
                 type="button"

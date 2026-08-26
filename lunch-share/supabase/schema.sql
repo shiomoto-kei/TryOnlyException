@@ -6,8 +6,23 @@ create table if not exists public.shops (
   category text default '',
   comment text default '',
   image_url text,
+  latitude double precision,
+  longitude double precision,
   created_at timestamptz not null default now()
 );
+
+alter table public.shops
+add column if not exists user_id uuid references auth.users(id) on delete set null;
+
+alter table public.shops
+add column if not exists latitude double precision;
+
+alter table public.shops
+add column if not exists longitude double precision;
+
+create index if not exists shops_location_idx
+on public.shops(latitude, longitude)
+where latitude is not null and longitude is not null;
 
 create table if not exists public.lunch_posts (
   id uuid primary key default gen_random_uuid(),
@@ -51,6 +66,45 @@ create table if not exists public.profiles (
   avatar_url text,
   updated_at timestamptz not null default now()
 );
+
+insert into public.profiles (id, name)
+select
+  auth_users.id,
+  coalesce(
+    nullif(trim(auth_users.raw_user_meta_data ->> 'name'), ''),
+    nullif(split_part(coalesce(auth_users.email, ''), '@', 1), ''),
+    '名前未設定'
+  )
+from auth.users auth_users
+on conflict (id) do nothing;
+
+create or replace function public.handle_new_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, name)
+  values (
+    new.id,
+    coalesce(
+      nullif(trim(new.raw_user_meta_data ->> 'name'), ''),
+      nullif(split_part(coalesce(new.email, ''), '@', 1), ''),
+      '名前未設定'
+    )
+  )
+  on conflict (id) do nothing;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_profile on auth.users;
+
+create trigger on_auth_user_created_profile
+after insert on auth.users
+for each row execute function public.handle_new_user_profile();
 
 create table if not exists public.friends (
   id uuid primary key default gen_random_uuid(),
@@ -149,4 +203,8 @@ on public.lunch_posts(group_id, created_at desc);
 
 insert into storage.buckets (id, name, public)
 values ('profile-avatars', 'profile-avatars', true)
+on conflict (id) do update set public = true;
+
+insert into storage.buckets (id, name, public)
+values ('shop-images', 'shop-images', true)
 on conflict (id) do update set public = true;

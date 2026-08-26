@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
@@ -31,6 +31,27 @@ const MagnifyingGlass = () => (
   </svg>
 );
 
+const SHOP_IMAGES_BUCKET = 'shop-images';
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+function getShopImagePath(imageUrl?: string) {
+  if (!imageUrl) return null;
+
+  try {
+    const url = new URL(imageUrl);
+    const bucketPath = `/storage/v1/object/public/${SHOP_IMAGES_BUCKET}/`;
+    const bucketIndex = url.pathname.indexOf(bucketPath);
+
+    if (bucketIndex === -1) return null;
+
+    return decodeURIComponent(
+      url.pathname.slice(bucketIndex + bucketPath.length)
+    );
+  } catch {
+    return null;
+  }
+}
+
 export default function ShopListPage() {
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
@@ -42,7 +63,14 @@ export default function ShopListPage() {
   const [mapPosition, setMapPosition] =
     useState<google.maps.LatLngLiteral | null>(null);
   const [comment, setComment] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isDeletingImage, setIsDeletingImage] = useState(false);
   const [message, setMessage] = useState('');
+  const createImageInputRef = useRef<HTMLInputElement | null>(null);
+  const editImageInputRef = useRef<HTMLInputElement | null>(null);
   const googleMapsApiKey =
     process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
@@ -63,6 +91,209 @@ export default function ShopListPage() {
   const handlePlaceError = useCallback((errorMessage: string) => {
     setMessage(errorMessage);
   }, []);
+
+  const clearCreateImage = useCallback(() => {
+    setImageFile(null);
+    setImagePreviewUrl((currentUrl) => {
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+      }
+      return null;
+    });
+
+    if (createImageInputRef.current) {
+      createImageInputRef.current.value = '';
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
+
+  const selectCreateImage = (file: File | null) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setMessage('画像ファイルを選択してください');
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setMessage('画像は5MB以内にしてください');
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreviewUrl((currentUrl) => {
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+      }
+      return URL.createObjectURL(file);
+    });
+    setMessage('');
+  };
+
+  const uploadShopImage = async ({
+    file,
+    shopId,
+    userId,
+  }: {
+    file: File;
+    shopId: string;
+    userId: string;
+  }) => {
+    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filePath = `${userId}/${shopId}-${Date.now()}.${extension}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(SHOP_IMAGES_BUCKET)
+      .upload(filePath, file, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      throw new Error(`画像のアップロードに失敗しました: ${uploadError.message}`);
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(SHOP_IMAGES_BUCKET).getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
+  const updateShopImage = async (shopId: string, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setMessage('画像ファイルを選択してください');
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setMessage('画像は5MB以内にしてください');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setMessage('');
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setMessage('ログインが必要です');
+        return;
+      }
+
+      const imageUrl = await uploadShopImage({
+        file,
+        shopId,
+        userId: user.id,
+      });
+
+      const { data, error } = await supabase
+        .from('shops')
+        .update({ image_url: imageUrl })
+        .eq('id', shopId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const updatedImageUrl = data.image_url ?? imageUrl;
+      const previousImagePath = getShopImagePath(selectedShop?.imageUrl);
+
+      if (previousImagePath) {
+        await supabase.storage
+          .from(SHOP_IMAGES_BUCKET)
+          .remove([previousImagePath]);
+      }
+
+      setShops((prev) =>
+        prev.map((shop) =>
+          shop.id === shopId ? { ...shop, imageUrl: updatedImageUrl } : shop
+        )
+      );
+      setSelectedShop((current) =>
+        current?.id === shopId
+          ? { ...current, imageUrl: updatedImageUrl }
+          : current
+      );
+      setMessage('');
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : '画像の更新に失敗しました'
+      );
+    } finally {
+      setIsUploadingImage(false);
+
+      if (editImageInputRef.current) {
+        editImageInputRef.current.value = '';
+      }
+    }
+  };
+
+  const deleteShopImage = async (shop: Shop) => {
+    if (!shop.imageUrl || isDeletingImage) return;
+
+    setIsDeletingImage(true);
+    setMessage('');
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setMessage('ログインが必要です');
+        return;
+      }
+
+      const previousImagePath = getShopImagePath(shop.imageUrl);
+
+      if (previousImagePath) {
+        const { error: removeError } = await supabase.storage
+          .from(SHOP_IMAGES_BUCKET)
+          .remove([previousImagePath]);
+
+        if (removeError) {
+          throw new Error(`画像の削除に失敗しました: ${removeError.message}`);
+        }
+      }
+
+      const { error } = await supabase
+        .from('shops')
+        .update({ image_url: null })
+        .eq('id', shop.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setShops((prev) =>
+        prev.map((currentShop) =>
+          currentShop.id === shop.id
+            ? { ...currentShop, imageUrl: undefined }
+            : currentShop
+        )
+      );
+      setSelectedShop((current) =>
+        current?.id === shop.id ? { ...current, imageUrl: undefined } : current
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : '画像の削除に失敗しました'
+      );
+    } finally {
+      setIsDeletingImage(false);
+    }
+  };
 
   useEffect(() => {
   const loadShops = async () => {
@@ -96,6 +327,8 @@ export default function ShopListPage() {
         category: shop.category ?? '',
         comment: shop.comment ?? '',
         imageUrl: shop.image_url ?? undefined,
+        latitude: shop.latitude ?? undefined,
+        longitude: shop.longitude ?? undefined,
         createdAt: shop.created_at ?? '',
       }))
     );
@@ -125,6 +358,8 @@ export default function ShopListPage() {
 };
 
   const handleSubmit = async () => {
+  if (isSubmitting) return;
+
   const name = shopName.trim();
 
   if (!name) {
@@ -133,6 +368,8 @@ export default function ShopListPage() {
   }
 
   try {
+    setIsSubmitting(true);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -151,11 +388,35 @@ export default function ShopListPage() {
         category: category.trim(),
         address: address.trim(),
         comment: comment.trim(),
+        latitude: mapPosition?.lat ?? null,
+        longitude: mapPosition?.lng ?? null,
       })
       .select()
       .single();
 
     if (error) throw error;
+
+    let imageUrl: string | undefined;
+
+    if (imageFile) {
+      imageUrl = await uploadShopImage({
+        file: imageFile,
+        shopId: data.id,
+        userId: user.id,
+      });
+
+      const { data: updatedData, error: updateError } = await supabase
+        .from('shops')
+        .update({ image_url: imageUrl })
+        .eq('id', data.id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      data.image_url = updatedData.image_url ?? imageUrl;
+    }
 
     const createdShop: Shop = {
       id: data.id,
@@ -164,7 +425,9 @@ export default function ShopListPage() {
       address: data.address ?? '',
       category: data.category ?? '',
       comment: data.comment ?? '',
-      imageUrl: data.image_url ?? undefined,
+      imageUrl: data.image_url ?? imageUrl,
+      latitude: data.latitude ?? undefined,
+      longitude: data.longitude ?? undefined,
       createdAt: data.created_at ?? '',
     };
 
@@ -174,12 +437,15 @@ export default function ShopListPage() {
     setAddress('');
     setMapPosition(null);
     setComment('');
+    clearCreateImage();
     setMessage('');
     setIsModalOpen(false);
   } catch (error) {
     setMessage(
       error instanceof Error ? error.message : '登録に失敗しました'
     );
+  } finally {
+    setIsSubmitting(false);
   }
 };
 
@@ -229,6 +495,10 @@ export default function ShopListPage() {
               postalCode={shop.postalCode}
               address={shop.address}
               category={shop.category}
+              latitude={shop.latitude}
+              longitude={shop.longitude}
+              googleMapsApiKey={googleMapsApiKey}
+              imageUrl={shop.imageUrl}
               onSelect={() => setSelectedShop(shop)}
               onDelete={() => handleDelete(shop.id)}
             />
@@ -283,10 +553,43 @@ export default function ShopListPage() {
 
               <div style={styles.row}>
                 <span style={styles.label}>画像：</span>
-                <button type="button" style={styles.photoButton}>
+                <input
+                  ref={createImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) =>
+                    selectCreateImage(event.target.files?.[0] ?? null)
+                  }
+                  style={styles.fileInput}
+                />
+                <button
+                  type="button"
+                  onClick={() => createImageInputRef.current?.click()}
+                  style={styles.photoButton}
+                >
                   写真を追加
                 </button>
+                {imageFile && (
+                  <button
+                    type="button"
+                    onClick={clearCreateImage}
+                    style={styles.textButton}
+                  >
+                    クリア
+                  </button>
+                )}
               </div>
+
+              {imagePreviewUrl && (
+                <div
+                  aria-label="選択した写真のプレビュー"
+                  role="img"
+                  style={{
+                    ...styles.imagePreview,
+                    backgroundImage: `url("${imagePreviewUrl}")`,
+                  }}
+                />
+              )}
 
               <div style={styles.commentRow}>
                 <span
@@ -307,8 +610,16 @@ export default function ShopListPage() {
 
               {message && <p style={styles.message}>{message}</p>}
 
-              <button type="button" onClick={handleSubmit} style={styles.submitButton}>
-                追加
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                style={{
+                  ...styles.submitButton,
+                  ...(isSubmitting ? styles.disabledButton : null),
+                }}
+              >
+                {isSubmitting ? '追加中' : '追加'}
               </button>
             </section>
           </div>
@@ -363,6 +674,50 @@ export default function ShopListPage() {
                   style={styles.detailImage}
                 />
               )}
+
+              <div style={styles.detailImageActions}>
+                <input
+                  ref={editImageInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    if (file && selectedShop) {
+                      updateShopImage(selectedShop.id, file);
+                    }
+                  }}
+                  style={styles.fileInput}
+                />
+                <button
+                  type="button"
+                  onClick={() => editImageInputRef.current?.click()}
+                  disabled={isUploadingImage || isDeletingImage}
+                  style={{
+                    ...styles.photoButton,
+                    ...(isUploadingImage || isDeletingImage
+                      ? styles.disabledButton
+                      : null),
+                  }}
+                >
+                  {selectedShop.imageUrl ? '写真を変更' : '写真を追加'}
+                </button>
+
+                {selectedShop.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => deleteShopImage(selectedShop)}
+                    disabled={isUploadingImage || isDeletingImage}
+                    style={{
+                      ...styles.dangerButton,
+                      ...(isUploadingImage || isDeletingImage
+                        ? styles.disabledButton
+                        : null),
+                    }}
+                  >
+                    {isDeletingImage ? '削除中' : '写真を削除'}
+                  </button>
+                )}
+              </div>
 
               <button
                 type="button"
@@ -509,6 +864,26 @@ const styles: { [key: string]: React.CSSProperties } = {
     color: '#444',
     cursor: 'pointer',
   },
+  textButton: {
+    border: 'none',
+    background: 'transparent',
+    color: '#777',
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  fileInput: {
+    display: 'none',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 120,
+    border: '1px solid #ddd',
+    borderRadius: 6,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundColor: '#f2f2f2',
+  },
   commentRow: {
     display: 'flex',
     alignItems: 'flex-start',
@@ -596,5 +971,25 @@ const styles: { [key: string]: React.CSSProperties } = {
     maxHeight: 180,
     objectFit: 'cover',
     borderRadius: 6,
+  },
+  detailImageActions: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  dangerButton: {
+    padding: '3px 10px',
+    background: '#fff',
+    border: '1px solid #d48a8a',
+    borderRadius: 4,
+    color: '#b33',
+    fontSize: 11,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+  disabledButton: {
+    opacity: 0.55,
+    cursor: 'wait',
   },
 };

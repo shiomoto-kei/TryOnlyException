@@ -222,7 +222,13 @@ const handlePlaceError = useCallback((errorMessage: string) => {
                   aria-label={`${member.name}の投稿を見る`}
                   style={{
                     ...styles.memberAvatar,
-                    background: member.avatarColor,
+                    ...(member.avatarUrl
+                      ? {
+                          backgroundImage: `url("${member.avatarUrl}")`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }
+                      : { background: member.avatarColor }),
                     border: member.shop && member.menu ? '3px solid #FF5757' : '3px solid #B9D7FF',
                   }}
                   onClick={(event) => {
@@ -283,7 +289,13 @@ const handlePlaceError = useCallback((errorMessage: string) => {
                       <div
                         style={{
                           ...styles.statusAvatar,
-                          background: member.avatarColor,
+                          ...(member.avatarUrl
+                            ? {
+                                backgroundImage: `url("${member.avatarUrl}")`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                              }
+                            : { background: member.avatarColor }),
                         }}
                       />
                       <span style={styles.statusName}>{member.name}</span>

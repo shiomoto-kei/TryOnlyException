@@ -6,6 +6,7 @@ export type Member = {
   id: string;
   name: string;
   avatarColor: string;
+  avatarUrl?: string | null;
   shop?: string | null;
   menu?: string | null;
   mapUrl?: string | null;
@@ -41,6 +42,7 @@ export type LunchPostResult = {
 type ProfileRow = {
   id: string;
   name: string | null;
+  avatar_url: string | null;
 };
 
 type GroupRow = {
@@ -153,6 +155,7 @@ export async function getMainPageData(
           id: userId,
           name: 'あなた',
           avatarColor: pickAvatarColor(userId),
+          avatarUrl: null,
           shop: null,
           menu: null,
         },
@@ -199,7 +202,7 @@ export async function getMainPageData(
     memberIds.length > 0
       ? await supabaseServer
           .from('profiles')
-          .select('id, name')
+          .select('id, name, avatar_url')
           .in('id', memberIds)
       : { data: [] };
 
@@ -219,6 +222,7 @@ export async function getMainPageData(
       id: member.user_id,
       name: profile?.name?.trim() || '名前未設定',
       avatarColor: pickAvatarColor(member.user_id),
+      avatarUrl: profile?.avatar_url ?? null,
       shop: latestPost?.shop ?? null,
       menu: latestPost?.menu ?? null,
       mapUrl: latestPost?.map_url ?? null,

@@ -203,7 +203,7 @@ export default function GroupPage() {
           <section style={styles.section}>
             <h2 style={styles.sectionTitle}>参加中のグループ</h2>
             <div style={styles.groupList}>
-              {groups.map((group, index) => (
+              {groups.map((group) => (
                 <div key={group.id} style={styles.groupRow}>
                   <span
                     style={{
@@ -215,7 +215,7 @@ export default function GroupPage() {
                     <span style={styles.groupName}>{group.name}</span>
                     <span style={styles.groupMeta}>
                       {group.memberCount}人
-                      {index === 0 ? '・Mainに表示中' : ''}
+                      {group.isActiveOnMain ? '・Mainに表示中' : ''}
                     </span>
                   </div>
                   {group.isOwner && (

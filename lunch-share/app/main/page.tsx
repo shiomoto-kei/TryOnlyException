@@ -7,7 +7,7 @@ import Header from '../components/Header';
 import BottomNav from '../components/BottomNav';
 import PushNotificationManager from '../components/PushNotificationManager';
 import { supabase } from '../lib/supabaseClient';
-import { createLunchPost, getMainPageData } from './action';
+import { createLunchPost, getMainPageData, setActiveGroup } from './action';
 import type { MainPageData } from './action';
 import ShopPlacePicker, { type PlaceSelection } from '../list/ShopPlacePicker';
 
@@ -36,6 +36,7 @@ export default function HomePage() {
   const [message, setMessage] = useState('');
   const [activeBubbleId, setActiveBubbleId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSwitchingGroup, setIsSwitchingGroup] = useState(false);
   const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
 const handlePlaceQueryChange = useCallback((value: string) => {
@@ -130,6 +131,27 @@ const handlePlaceError = useCallback((errorMessage: string) => {
     }
   };
 
+  const handleSwitchGroup = async (groupId: string) => {
+    if (isSwitchingGroup || groupId === pageData?.group.id) return;
+
+    setIsSwitchingGroup(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const result = await setActiveGroup(
+        groupId,
+        sessionData.session?.access_token,
+      );
+
+      if (result.ok) {
+        await loadData();
+      } else {
+        setMessage(result.message);
+      }
+    } finally {
+      setIsSwitchingGroup(false);
+    }
+  };
+
   const handleAvatarClick = (id: string) => {
     setActiveBubbleId((prev) => (prev === id ? null : id));
   };
@@ -146,6 +168,7 @@ const handlePlaceError = useCallback((errorMessage: string) => {
             return;
           }
 
+          setMessage('');
           setIsStatusModalOpen(true);
         }}
         style={styles.groupRow}
@@ -275,6 +298,46 @@ const handlePlaceError = useCallback((errorMessage: string) => {
               style={styles.statusModalCard}
               onClick={(event) => event.stopPropagation()}
             >
+              {(pageData?.groups.length ?? 0) > 1 && (
+                <div style={styles.groupSwitchSection}>
+                  <span style={styles.groupSwitchTitle}>グループを切り替え</span>
+                  <ul style={styles.groupSwitchList}>
+                    {(pageData?.groups ?? []).map((groupOption) => {
+                      const isActiveGroup = groupOption.id === pageData?.group.id;
+
+                      return (
+                        <li key={groupOption.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSwitchGroup(groupOption.id)}
+                            disabled={isSwitchingGroup}
+                            style={{
+                              ...styles.groupSwitchRow,
+                              ...(isActiveGroup ? styles.groupSwitchRowActive : null),
+                            }}
+                          >
+                            <span
+                              style={{
+                                ...styles.groupSwitchIcon,
+                                background: groupOption.iconColor,
+                              }}
+                            />
+                            <span style={styles.groupSwitchName}>
+                              {groupOption.name}
+                            </span>
+                            {isActiveGroup && (
+                              <span style={styles.groupSwitchBadge}>表示中</span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {message && <p style={styles.message}>{message}</p>}
+
               <div style={styles.flagWrapper}>
                 <img src="/flag.png" alt="" style={styles.flagImage} />
                 <span style={styles.flagText}>みんなの投稿状況</span>
@@ -552,6 +615,62 @@ placeSearchBlock: {
     flexDirection: 'column',
     boxSizing: 'border-box',
     overflow: 'hidden',
+  },
+  groupSwitchSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8,
+    marginTop: 18,
+    paddingBottom: 14,
+    borderBottom: '1px solid #eee',
+  },
+  groupSwitchTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: '#999',
+  },
+  groupSwitchList: {
+    listStyle: 'none',
+    margin: 0,
+    padding: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+  },
+  groupSwitchRow: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '8px 10px',
+    border: '1px solid transparent',
+    borderRadius: 10,
+    background: 'transparent',
+    cursor: 'pointer',
+    boxSizing: 'border-box',
+  },
+  groupSwitchRowActive: {
+    border: '1px solid #B9D7FF',
+    background: '#F0F6FF',
+  },
+  groupSwitchIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: '50%',
+    flexShrink: 0,
+  },
+  groupSwitchName: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: 700,
+    color: '#333',
+    textAlign: 'left',
+  },
+  groupSwitchBadge: {
+    fontSize: 10,
+    fontWeight: 700,
+    color: '#3E8FBF',
+    whiteSpace: 'nowrap',
   },
   flagWrapper: {
     position: 'relative',

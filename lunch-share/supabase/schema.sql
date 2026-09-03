@@ -67,6 +67,9 @@ create table if not exists public.profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.profiles
+add column if not exists active_group_id uuid;
+
 insert into public.profiles (id, name)
 select
   auth_users.id,
@@ -182,6 +185,23 @@ begin
     not valid;
   end if;
 end $$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'profiles_active_group_id_fkey'
+  ) then
+    alter table public.profiles
+    add constraint profiles_active_group_id_fkey
+    foreign key (active_group_id) references public.groups(id) on delete set null
+    not valid;
+  end if;
+end $$;
+
+create index if not exists profiles_active_group_id_idx
+on public.profiles(active_group_id);
 
 create index if not exists groups_owner_user_id_idx
 on public.groups(owner_user_id);

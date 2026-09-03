@@ -18,6 +18,12 @@ export type Group = {
   iconColor: string;
 };
 
+export type GroupSummary = {
+  id: string;
+  name: string;
+  iconColor: string;
+};
+
 export type MemberPosition = Member & {
   angle: number;
 };
@@ -25,6 +31,12 @@ export type MemberPosition = Member & {
 export type MainPageData = {
   group: Group;
   members: MemberPosition[];
+  groups: GroupSummary[];
+};
+
+export type SetActiveGroupResult = {
+  ok: boolean;
+  message: string;
 };
 
 export type LunchPostInput = {
@@ -136,18 +148,19 @@ export async function getMainPageData(
     return {
       group: DEFAULT_GROUP,
       members: [],
+      groups: [],
     };
   }
 
-  const { data: membership } = await supabaseServer
+  const { data: membershipRows } = await supabaseServer
     .from('group_members')
     .select('group_id, user_id, created_at')
     .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order('created_at', { ascending: false });
 
-  if (!membership?.group_id) {
+  const memberships = (membershipRows as MembershipRow[] | null) ?? [];
+
+  if (memberships.length === 0) {
     return {
       group: DEFAULT_GROUP,
       members: buildMemberPositions([
@@ -160,18 +173,39 @@ export async function getMainPageData(
           menu: null,
         },
       ]),
+      groups: [],
     };
   }
 
-  const groupId = String(membership.group_id);
+  // 参加中グループのID一覧(直近参加した順)。グループ切り替えの選択肢にもなる。
+  const joinedGroupIds = [
+    ...new Set(memberships.map((row) => String(row.group_id))),
+  ];
+
+  const { data: selfProfileRow } = await supabaseServer
+    .from('profiles')
+    .select('active_group_id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const activeGroupId = (
+    selfProfileRow as { active_group_id: string | null } | null
+  )?.active_group_id;
+
+  // ユーザーが選択したグループがあり、かつ今も参加中ならそれを表示。
+  // 未選択、または脱退済みなら直近参加したグループにフォールバック。
+  const groupId =
+    activeGroupId && joinedGroupIds.includes(activeGroupId)
+      ? activeGroupId
+      : joinedGroupIds[0];
+
   const { start, end } = getTodayRange();
 
-  const [groupResult, memberResult, postResult] = await Promise.all([
+  const [joinedGroupRowsResult, memberResult, postResult] = await Promise.all([
     supabaseServer
       .from('groups')
       .select('id, name, icon_color')
-      .eq('id', groupId)
-      .maybeSingle(),
+      .in('id', joinedGroupIds),
     supabaseServer
       .from('group_members')
       .select('group_id, user_id, created_at')
@@ -186,7 +220,23 @@ export async function getMainPageData(
       .order('created_at', { ascending: false }),
   ]);
 
-  const groupRow = groupResult.data as GroupRow | null;
+  const groupRowsById = new Map(
+    ((joinedGroupRowsResult.data as GroupRow[] | null) ?? []).map((row) => [
+      row.id,
+      row,
+    ]),
+  );
+
+  const groups: GroupSummary[] = joinedGroupIds
+    .map((id) => groupRowsById.get(id))
+    .filter((row): row is GroupRow => Boolean(row))
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      iconColor: row.icon_color ?? '#e0e0e0',
+    }));
+
+  const groupRow = groupRowsById.get(groupId) ?? null;
   const group: Group = groupRow
     ? {
         id: groupRow.id,
@@ -232,7 +282,47 @@ export async function getMainPageData(
   return {
     group,
     members: buildMemberPositions(membersWithPosts),
+    groups,
   };
+}
+
+export async function setActiveGroup(
+  groupId: string,
+  accessToken?: string,
+): Promise<SetActiveGroupResult> {
+  const userId = await getUserIdFromToken(accessToken);
+
+  if (!userId) {
+    return { ok: false, message: 'ログインが必要です。' };
+  }
+
+  const { data: membership } = await supabaseServer
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+    .eq('group_id', groupId)
+    .maybeSingle();
+
+  if (!membership) {
+    return {
+      ok: false,
+      message: '参加していないグループには切り替えられません。',
+    };
+  }
+
+  const { error } = await supabaseServer
+    .from('profiles')
+    .update({ active_group_id: groupId })
+    .eq('id', userId);
+
+  if (error) {
+    return {
+      ok: false,
+      message: `グループの切り替えに失敗しました: ${error.message}`,
+    };
+  }
+
+  return { ok: true, message: 'グループを切り替えました' };
 }
 
 export async function createLunchPost(

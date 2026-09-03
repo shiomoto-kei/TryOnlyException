@@ -15,6 +15,7 @@ export type JoinedGroup = {
   memberCount: number;
   memberIds: string[];
   isOwner: boolean;
+  isActiveOnMain: boolean;
 };
 
 export type GroupPageData = {
@@ -144,6 +145,22 @@ export async function getGroupPageData(
     };
   }
 
+  const { data: selfProfileRow } = await supabaseServer
+    .from('profiles')
+    .select('active_group_id')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const storedActiveGroupId = (
+    selfProfileRow as { active_group_id: string | null } | null
+  )?.active_group_id;
+
+  // Mainページで実際に表示されるグループ。未選択/脱退済みなら直近参加したグループ。
+  const activeGroupId =
+    storedActiveGroupId && groupIds.includes(storedActiveGroupId)
+      ? storedActiveGroupId
+      : groupIds[0];
+
   const [groupResult, memberResult] = await Promise.all([
     supabaseServer
       .from('groups')
@@ -190,6 +207,7 @@ export async function getGroupPageData(
         memberCount: memberIdsByGroup.get(group.id)?.length ?? 0,
         memberIds: memberIdsByGroup.get(group.id) ?? [],
         isOwner: group.owner_user_id === userId,
+        isActiveOnMain: group.id === activeGroupId,
       },
     ];
   });

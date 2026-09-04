@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import BottomNav from '../components/BottomNav';
 import Header from '../components/Header';
 import ShopCard from '../components/ShopCard';
-import type { Shop } from './action';
+import { getShops, type Shop } from './action';
 import { supabase } from '../lib/supabaseClient';
 import ShopPlacePicker, { type PlaceSelection } from './ShopPlacePicker';
 
@@ -55,6 +55,7 @@ function getShopImagePath(imageUrl?: string) {
 export default function ShopListPage() {
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [shopName, setShopName] = useState('');
@@ -300,11 +301,12 @@ export default function ShopListPage() {
     }
   };
 
-  useEffect(() => {
-  const loadShops = async () => {
+  const loadShops = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    setCurrentUserId(user?.id ?? null);
 
     // 未ログインなら空の一覧
     if (!user) {
@@ -312,35 +314,25 @@ export default function ShopListPage() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from('shops')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data: sessionData } = await supabase.auth.getSession();
 
-    if (error) {
-      setMessage(`店舗一覧の取得に失敗しました: ${error.message}`);
-      return;
+    try {
+      // 今表示中のグループのメンバー全員分のお店リストを取得
+      // (グループ未参加なら自分の分だけ)
+      const nextShops = await getShops(sessionData.session?.access_token);
+      setShops(nextShops);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `店舗一覧の取得に失敗しました: ${error.message}`
+          : '店舗一覧の取得に失敗しました'
+      );
     }
+  }, []);
 
-    // DBの snake_case を画面用の camelCase に変換
-    setShops(
-      (data ?? []).map((shop) => ({
-        id: shop.id,
-        name: shop.name,
-        postalCode: shop.postal_code ?? '',
-        address: shop.address ?? '',
-        category: shop.category ?? '',
-        comment: shop.comment ?? '',
-        imageUrl: shop.image_url ?? undefined,
-        latitude: shop.latitude ?? undefined,
-        longitude: shop.longitude ?? undefined,
-        createdAt: shop.created_at ?? '',
-      }))
-    );
-  };
-
-  loadShops();
-}, []);
+  useEffect(() => {
+    void loadShops();
+  }, [loadShops]);
 
   const handleDelete = async (shopToDelete: Shop) => {
   if (!window.confirm('このお店をリストから削除しますか？')) return;
@@ -463,20 +455,8 @@ export default function ShopListPage() {
       }
     }
 
-    const createdShop: Shop = {
-      id: data.id,
-      name: data.name,
-      postalCode: data.postal_code ?? '',
-      address: data.address ?? '',
-      category: data.category ?? '',
-      comment: data.comment ?? '',
-      imageUrl: data.image_url ?? imageUrl,
-      latitude: data.latitude ?? undefined,
-      longitude: data.longitude ?? undefined,
-      createdAt: data.created_at ?? '',
-    };
-
-    setShops((prev) => [...prev, createdShop]);
+    // ownerName など表示用の情報も含めて再取得し直す
+    await loadShops();
     setShopName('');
     setCategory('');
     setAddress('');
@@ -548,8 +528,15 @@ export default function ShopListPage() {
               longitude={shop.longitude}
               googleMapsApiKey={googleMapsApiKey}
               imageUrl={shop.imageUrl}
+              ownerName={
+                shop.ownerId !== currentUserId ? shop.ownerName : undefined
+              }
               onSelect={() => setSelectedShop(shop)}
-              onDelete={() => handleDelete(shop)}
+              onDelete={
+                shop.ownerId === currentUserId
+                  ? () => handleDelete(shop)
+                  : undefined
+              }
             />
           ))}
         </section>
@@ -688,6 +675,12 @@ export default function ShopListPage() {
             >
               <h2 style={styles.detailTitle}>{selectedShop.name}</h2>
 
+              {selectedShop.ownerId !== currentUserId && (
+                <p style={styles.detailOwner}>
+                  {selectedShop.ownerName}さんが追加したお店です
+                </p>
+              )}
+
               <div style={styles.detailRow}>
                 <span style={styles.label}>カテゴリ：</span>
                 <span style={styles.detailText}>
@@ -724,49 +717,51 @@ export default function ShopListPage() {
                 />
               )}
 
-              <div style={styles.detailImageActions}>
-                <input
-                  ref={editImageInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] ?? null;
-                    if (file && selectedShop) {
-                      updateShopImage(selectedShop.id, file);
-                    }
-                  }}
-                  style={styles.fileInput}
-                />
-                <button
-                  type="button"
-                  onClick={() => editImageInputRef.current?.click()}
-                  disabled={isUploadingImage || isDeletingImage}
-                  style={{
-                    ...styles.photoButton,
-                    ...(isUploadingImage || isDeletingImage
-                      ? styles.disabledButton
-                      : null),
-                  }}
-                >
-                  {selectedShop.imageUrl ? '写真を変更' : '写真を追加'}
-                </button>
-
-                {selectedShop.imageUrl && (
+              {selectedShop.ownerId === currentUserId && (
+                <div style={styles.detailImageActions}>
+                  <input
+                    ref={editImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      if (file && selectedShop) {
+                        updateShopImage(selectedShop.id, file);
+                      }
+                    }}
+                    style={styles.fileInput}
+                  />
                   <button
                     type="button"
-                    onClick={() => deleteShopImage(selectedShop)}
+                    onClick={() => editImageInputRef.current?.click()}
                     disabled={isUploadingImage || isDeletingImage}
                     style={{
-                      ...styles.dangerButton,
+                      ...styles.photoButton,
                       ...(isUploadingImage || isDeletingImage
                         ? styles.disabledButton
                         : null),
                     }}
                   >
-                    {isDeletingImage ? '削除中' : '写真を削除'}
+                    {selectedShop.imageUrl ? '写真を変更' : '写真を追加'}
                   </button>
-                )}
-              </div>
+
+                  {selectedShop.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => deleteShopImage(selectedShop)}
+                      disabled={isUploadingImage || isDeletingImage}
+                      style={{
+                        ...styles.dangerButton,
+                        ...(isUploadingImage || isDeletingImage
+                          ? styles.disabledButton
+                          : null),
+                      }}
+                    >
+                      {isDeletingImage ? '削除中' : '写真を削除'}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {message && <p style={styles.message}>{message}</p>}
 
@@ -987,6 +982,13 @@ const styles: { [key: string]: React.CSSProperties } = {
     margin: '0 0 4px',
     color: '#333',
     fontSize: 18,
+    fontWeight: 700,
+    textAlign: 'center',
+  },
+  detailOwner: {
+    margin: '0 0 10px',
+    color: '#3E8FBF',
+    fontSize: 12,
     fontWeight: 700,
     textAlign: 'center',
   },

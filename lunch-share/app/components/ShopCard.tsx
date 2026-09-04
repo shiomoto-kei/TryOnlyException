@@ -9,6 +9,7 @@ type ShopCardProps = {
   longitude?: number;
   googleMapsApiKey?: string;
   imageUrl?: string;
+  ownerName?: string;
   onSelect?: () => void;
   onDelete?: () => void;
 };
@@ -55,6 +56,7 @@ export default function ShopCard({
   longitude,
   googleMapsApiKey,
   imageUrl,
+  ownerName,
   onSelect,
   onDelete,
 }: ShopCardProps) {
@@ -72,29 +74,33 @@ export default function ShopCard({
       onClick={onSelect}
       role={onSelect ? 'button' : undefined}
     >
-      <button
-        type="button"
-        aria-label={`${name}をリストから削除`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onDelete?.();
-        }}
-        style={styles.pinButton}
-      >
-        <Image
-          src="/pushpin.png"
-          alt=""
-          width={29}
-          height={35}
-          style={styles.pinImage}
-          aria-hidden="true"
-        />
-      </button>
+      {onDelete && (
+        <button
+          type="button"
+          aria-label={`${name}をリストから削除`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          style={styles.pinButton}
+        >
+          <Image
+            src="/pushpin.png"
+            alt=""
+            width={29}
+            height={35}
+            style={styles.pinImage}
+            aria-hidden="true"
+          />
+        </button>
+      )}
 
       <div style={styles.headerRow}>
         <h2 style={styles.name}>{name}</h2>
         <span style={styles.category}>{category}</span>
       </div>
+
+      {ownerName && <p style={styles.ownerBadge}>{ownerName}さんが追加</p>}
 
       <p style={styles.detail}>{postalCode}</p>
       <p style={styles.detail}>{address}</p>
@@ -194,6 +200,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: 8,
     lineHeight: 1.2,
     color: '#222',
+  },
+  ownerBadge: {
+    margin: '4px 0 0',
+    fontSize: 9,
+    fontWeight: 700,
+    color: '#3E8FBF',
   },
   photoRow: {
     display: 'flex',
